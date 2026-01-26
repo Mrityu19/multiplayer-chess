@@ -36,7 +36,7 @@ var config = {
     onDragStart: onDragStart,
     onDrop: onDrop,
     onSnapEnd: onSnapEnd,
-    pieceTheme: 'lib/chessboardjs/img/chesspieces/wikipedia/{piece}.png'
+    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
 };
 
 var board = Chessboard('myBoard', config);
