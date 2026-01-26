@@ -112,3 +112,18 @@ function checkStatus() {
         alert("Game Over! Draw.");
     }
 }
+function checkStatus() {
+    if (game.in_checkmate()) {
+        let winner = game.turn() === 'w' ? 'Black' : 'White';
+        alert(`Game Over! ${winner} Wins by Checkmate!`);
+        
+        // Tell server to stop the clock! 🛑
+        socket.emit('gameEnd'); 
+        
+    } else if (game.in_draw()) {
+        alert("Game Over! Draw.");
+        
+        // Tell server to stop the clock! 🛑
+        socket.emit('gameEnd');
+    }
+}
