@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Chess</title>
+    <link rel="stylesheet" href="lib/chessboardjs/css/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <h1 style="color: white; margin-bottom: 10px;">Multiplayer Chess</h1>
+
+    <div class="timer-container">
+        <div id="timer-white" class="timer-box">Black: 10:00</div>
+        <div id="timer-black" class="timer-box">White: 10:00</div>
+    </div>
+
+    <div class="button-container" id="buttonParent">
+        <button class="timer-button" data-time="10">10 Min</button>
+        <button class="timer-button" data-time="15">15 Min</button>
+        <button class="timer-button" data-time="20">20 Min</button>
+        
+        <div class="custom-time-box">
+            <input type="number" id="customTimeInput" placeholder="Min" min="1" max="60">
+            <button id="customTimeBtn" class="timer-button">Play</button>
+        </div>
+    </div>
+
+    <div id="myBoard" style="width: 400px"></div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="lib/chessboardjs/js/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+
+</body>
+</html>

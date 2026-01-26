@@ -1,0 +1,56 @@
+/* Container for the custom input */
+.custom-time-box {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    background-color: #444; /* Match button background */
+    padding: 5px;
+    border-radius: 5px;
+}
+
+/* Style the input field */
+#customTimeInput {
+    width: 50px;
+    padding: 5px;
+    border: none;
+    border-radius: 3px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* Make the custom play button slightly different if you want, 
+   or keep it same as others. Here we just ensure it fits well. */
+#customTimeBtn {
+    padding: 5px 15px; /* Slightly smaller padding to fit */
+    background-color: #28a745; /* Green color to indicate "Go" */
+}
+
+#customTimeBtn:hover {
+    background-color: #218838;
+}
+/* Timer Styling */
+.timer-container {
+    display: flex;
+    justify-content: space-between;
+    width: 400px; /* Same width as board */
+    margin-bottom: 10px;
+}
+
+.timer-box {
+    background-color: #333;
+    color: #fff;
+    padding: 10px 20px;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 5px;
+    border: 2px solid #555;
+    width: 120px;
+    text-align: center;
+}
+
+/* Highlight the active timer */
+.active-timer {
+    background-color: #28a745; /* Green */
+    border-color: #fff;
+    box-shadow: 0 0 10px #28a745;
+}
