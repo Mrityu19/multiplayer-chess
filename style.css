@@ -18,16 +18,20 @@
     font-size: 14px;
 }
 
-/* Make the custom play button slightly different if you want, 
-   or keep it same as others. Here we just ensure it fits well. */
+/* Make the custom play button slightly different */
 #customTimeBtn {
-    padding: 5px 15px; /* Slightly smaller padding to fit */
+    padding: 5px 15px; 
     background-color: #28a745; /* Green color to indicate "Go" */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
 #customTimeBtn:hover {
     background-color: #218838;
 }
+
 /* Timer Styling */
 .timer-container {
     display: flex;
@@ -53,4 +57,9 @@
     background-color: #28a745; /* Green */
     border-color: #fff;
     box-shadow: 0 0 10px #28a745;
+}
+
+/* --- NEW: Board Highlights --- */
+.highlight-move {
+    background-color: rgba(255, 255, 0, 0.5) !important; /* Transparent Yellow */
 }
