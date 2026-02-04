@@ -5,7 +5,8 @@ class ChessEngine {
         this.ready = false;
         this.callbacks = {};
         this.evalCallback = null;
-        this.bestMoveCallback = null;
+        this.pendingCallbacks = []; // Queue for callbacks
+        this.isProcessing = false;
     }
 
     async init() {
@@ -27,13 +28,21 @@ class ChessEngine {
                     // Best move received
                     if (message.startsWith('bestmove')) {
                         const match = message.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
-                        if (match && this.bestMoveCallback) {
+                        if (match && this.pendingCallbacks.length > 0) {
+                            const callback = this.pendingCallbacks.shift();
                             const move = match[1];
-                            this.bestMoveCallback({
-                                from: move.substring(0, 2),
-                                to: move.substring(2, 4),
-                                promotion: move.length > 4 ? move[4] : undefined
-                            });
+                            this.isProcessing = false;
+
+                            if (callback) {
+                                callback({
+                                    from: move.substring(0, 2),
+                                    to: move.substring(2, 4),
+                                    promotion: move.length > 4 ? move[4] : undefined
+                                });
+                            }
+
+                            // Process next in queue if any
+                            this.processQueue();
                         }
                     }
 
@@ -104,18 +113,42 @@ class ChessEngine {
         this.stockfish.postMessage(`position fen ${fen}`);
     }
 
+    processQueue() {
+        if (this.isProcessing || this.pendingCallbacks.length === 0) return;
+        if (!this.queuedRequests || this.queuedRequests.length === 0) return;
+
+        const request = this.queuedRequests.shift();
+        this.isProcessing = true;
+
+        this.stockfish.postMessage(`setoption name Skill Level value ${request.skillLevel}`);
+        this.stockfish.postMessage(`position fen ${request.fen}`);
+        this.stockfish.postMessage(`go depth ${request.depth || 10}`);
+    }
+
     getBestMove(fen, skillLevel = 20, callback) {
         if (!this.ready) {
             console.error('Engine not ready');
             return;
         }
 
-        this.bestMoveCallback = callback;
+        console.log('Requesting best move for FEN:', fen);
 
-        // Set skill level (0-20, where 20 is strongest)
-        this.stockfish.postMessage(`setoption name Skill Level value ${skillLevel}`);
-        this.stockfish.postMessage(`position fen ${fen}`);
-        this.stockfish.postMessage('go depth 10'); // Reduced depth for faster response
+        // Add callback to queue
+        this.pendingCallbacks.push(callback);
+
+        // If not currently processing, start immediately
+        if (!this.isProcessing) {
+            this.isProcessing = true;
+
+            // Set skill level (0-20, where 20 is strongest)
+            this.stockfish.postMessage(`setoption name Skill Level value ${skillLevel}`);
+            this.stockfish.postMessage(`position fen ${fen}`);
+            this.stockfish.postMessage('go depth 10'); // Reduced depth for faster response
+        } else {
+            // Queue the request
+            if (!this.queuedRequests) this.queuedRequests = [];
+            this.queuedRequests.push({ fen, skillLevel, depth: 10 });
+        }
     }
 
     startAnalysis(fen, callback) {
@@ -138,3 +171,4 @@ class ChessEngine {
         }
     }
 }
+

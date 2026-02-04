@@ -28,6 +28,67 @@
         </div>
     </div>
 
+    <!-- Computer Setup Panel -->
+    <div id="computerSetup" class="start-menu" style="display:none">
+        <h2>🤖 Play vs Computer</h2>
+
+        <!-- Difficulty Slider -->
+        <div class="difficulty-box">
+            <label for="difficultySlider">Difficulty</label>
+            <input type="range" id="difficultySlider" min="1" max="10" value="5">
+            <div class="elo-display">
+                <span id="difficultyLabel">Intermediate</span>
+                <span id="eloRange">(~1400 ELO)</span>
+            </div>
+        </div>
+
+        <!-- Timer Selection -->
+        <div class="timer-selection">
+            <label>Time Control</label>
+            <div class="timer-buttons">
+                <button class="timer-btn" data-time="0">No Timer</button>
+                <button class="timer-btn selected" data-time="5">5 Min</button>
+                <button class="timer-btn" data-time="10">10 Min</button>
+                <button class="timer-btn" data-time="15">15 Min</button>
+            </div>
+        </div>
+
+        <button id="startComputerGame" class="menu-button">▶️ Start Game</button>
+        <button id="backToMenu" class="back-button">← Back to Menu</button>
+    </div>
+
+    <!-- Analysis Overlay -->
+    <div id="analysisOverlay" class="analysis-overlay">
+        <div class="analysis-content">
+            <h2>📊 Game Analysis</h2>
+            <div class="analysis-main">
+                <div class="analysis-board-wrapper">
+                    <div id="analysisBoard"></div>
+                </div>
+                <div class="analysis-panel">
+                    <div class="eval-container">
+                        <div id="evalBar" class="eval-bar">
+                            <div id="evalFill" class="eval-fill"></div>
+                        </div>
+                        <span id="evalScore">0.0</span>
+                    </div>
+                    <div class="move-navigator">
+                        <button id="firstMove" class="nav-btn">⏮️</button>
+                        <button id="prevMove" class="nav-btn">◀️</button>
+                        <span id="currentMoveNum">Start</span>
+                        <button id="nextMove" class="nav-btn">▶️</button>
+                        <button id="lastMove" class="nav-btn">⏭️</button>
+                    </div>
+                    <div id="aiExplanation" class="ai-explanation">
+                        <h3>🤖 AI Analysis</h3>
+                        <p>Click through moves to see analysis...</p>
+                    </div>
+                </div>
+            </div>
+            <button id="closeAnalysis" class="menu-button">✖️ Close Analysis</button>
+        </div>
+    </div>
+
     <!-- Game Container -->
     <div id="gameContainer" class="game-container">
         <div class="timer-container">
@@ -47,7 +108,15 @@
         </div>
 
         <div class="board-and-history">
-            <div id="myBoard"></div>
+            <div class="board-wrapper">
+                <div id="myBoard"></div>
+                <!-- Arrow overlay for best move display -->
+                <svg id="arrowOverlay" class="arrow-overlay"></svg>
+                <!-- Game Controls -->
+                <div class="game-controls">
+                    <button id="resignBtn" class="resign-button">🏳️ Resign</button>
+                </div>
+            </div>
             <div id="moveHistory" class="move-history"></div>
         </div>
     </div>
@@ -56,7 +125,8 @@
     <div id="gameOverlay" class="game-overlay">
         <div class="game-over-content">
             <h2 id="gameOverText">Game Over</h2>
-            <button id="newGameBtn" class="menu-button">New Game</button>
+            <button id="analyzeGameBtn" class="menu-button analyze-btn">📊 Analyze Game</button>
+            <button id="newGameBtn" class="menu-button">🔄 New Game</button>
         </div>
     </div>
 
