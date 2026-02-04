@@ -1,11 +1,11 @@
-/* General Page Styling to Center Everything */
+/* General Page Styling */
 body {
-    background-color: #302e2b; /* Lichess-style dark background */
+    background-color: #302e2b;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centers items horizontally */
-    justify-content: center; /* Centers items vertically */
+    align-items: center;
+    justify-content: center;
     min-height: 100vh;
     margin: 0;
     color: white;
@@ -17,11 +17,137 @@ h1 {
     text-shadow: 2px 2px 4px #000;
 }
 
-/* --- THE BOARD FIX --- */
+/* Start Menu */
+.start-menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 40px;
+    background-color: #262421;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    min-width: 300px;
+}
+
+.menu-button {
+    background-color: #629924;
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.3s;
+    width: 100%;
+    font-weight: bold;
+}
+
+.menu-button:hover {
+    background-color: #6dbb20;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(98, 153, 36, 0.4);
+}
+
+.link-box {
+    display: none;
+    background-color: #363431;
+    padding: 15px;
+    border-radius: 5px;
+    width: 100%;
+    text-align: center;
+}
+
+.link-box input {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 3px;
+    background-color: #504d49;
+    color: white;
+    text-align: center;
+}
+
+.link-box button {
+    background-color: #629924;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+/* Game Container */
+.game-container {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 800px;
+}
+
+/* Board and History Layout */
+.board-and-history {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+/* Board */
 #myBoard {
-    width: 100%;      /* Try to fill the screen... */
-    max-width: 500px; /* ...but STOP at 500px. This fixes the "Giant Board" issue */
-    margin: 20px 0;   /* Add some space above and below */
+    width: 500px;
+    max-width: 500px;
+}
+
+/* Move History */
+.move-history {
+    background-color: #262421;
+    border-radius: 5px;
+    padding: 15px;
+    min-width: 200px;
+    max-width: 250px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.move-history h3 {
+    margin-top: 0;
+    font-size: 1rem;
+    color: #aca29a;
+    border-bottom: 1px solid #403d39;
+    padding-bottom: 10px;
+}
+
+.history-row {
+    display: flex;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid #363431;
+}
+
+.move-number {
+    color: #999;
+    width: 30px;
+}
+
+.move-white,
+.move-black {
+    flex: 1;
+    color: white;
+}
+
+/* Coach Messages */
+.coach-message {
+    background-color: #363431;
+    padding: 10px;
+    margin: 10px 0;
+    border-left: 3px solid #629924;
+    border-radius: 3px;
+    font-size: 0.9rem;
+    color: #aca29a;
 }
 
 /* Timer Styling */
@@ -29,7 +155,7 @@ h1 {
     display: flex;
     justify-content: space-between;
     width: 100%;
-    max-width: 500px; /* Match board width */
+    max-width: 500px;
     margin-bottom: 10px;
 }
 
@@ -41,13 +167,13 @@ h1 {
     font-weight: bold;
     border-radius: 5px;
     border: 2px solid #403d39;
-    width: 45%; /* Flexible width */
+    width: 45%;
     text-align: center;
+    transition: all 0.3s;
 }
 
-/* Highlight the active timer */
 .active-timer {
-    background-color: #aca29a; /* Light highlight */
+    background-color: #aca29a;
     color: #000;
     border-color: #fff;
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
@@ -58,8 +184,10 @@ h1 {
     display: flex;
     gap: 10px;
     justify-content: center;
-    margin-bottom: 10px;
-    flex-wrap: wrap; /* Allows buttons to stack on mobile */
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 500px;
 }
 
 .timer-button {
@@ -76,6 +204,11 @@ h1 {
 .timer-button:hover {
     background-color: #484541;
     color: #fff;
+}
+
+.timer-button.selected {
+    background-color: #629924;
+    color: white;
 }
 
 /* Custom Time Box */
@@ -101,7 +234,7 @@ h1 {
 
 #customTimeBtn {
     padding: 5px 15px;
-    background-color: #629924; /* Lichess Green */
+    background-color: #629924;
     color: white;
     border: none;
     border-radius: 5px;
@@ -113,7 +246,58 @@ h1 {
     background-color: #6dbb20;
 }
 
+/* Game Over Overlay */
+.game-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.game-over-content {
+    background-color: #262421;
+    padding: 40px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+}
+
+.game-over-content h2 {
+    font-size: 2rem;
+    margin-bottom: 30px;
+    color: #629924;
+}
+
 /* Board Highlights */
 .highlight-move {
-    box-shadow: inset 0 0 3px 3px yellow; /* Highlighting style */
+    box-shadow: inset 0 0 3px 3px yellow;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .board-and-history {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #myBoard {
+        width: 90vw;
+        max-width: 400px;
+    }
+
+    .move-history {
+        width: 90vw;
+        max-width: 400px;
+    }
+
+    .timer-container {
+        width: 90vw;
+        max-width: 400px;
+    }
 }

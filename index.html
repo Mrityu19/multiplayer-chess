@@ -1,39 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multiplayer Chess</title>
-    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
+        integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-    
+
     <h1>Multiplayer Chess</h1>
 
-    <div class="timer-container">
-        <div id="timer-black" class="timer-box">Black: 10:00</div>
-        <div id="timer-white" class="timer-box">White: 10:00</div>
-    </div>
+    <!-- Start Menu -->
+    <div id="startMenu" class="start-menu">
+        <h2 id="statusText">Choose Game Mode</h2>
+        <button id="btnOnline" class="menu-button">🌐 Play Online</button>
+        <button id="btnFriend" class="menu-button">👥 Play with Friend</button>
+        <button id="btnComputer" class="menu-button">🤖 Play vs Computer</button>
 
-    <div class="button-container" id="buttonParent">
-        <button class="timer-button" data-time="10">10 Min</button>
-        <button class="timer-button" data-time="15">15 Min</button>
-        <button class="timer-button" data-time="20">20 Min</button>
-        
-        <div class="custom-time-box">
-            <input type="number" id="customTimeInput" placeholder="Min" min="1" max="60">
-            <button id="customTimeBtn">Play</button>
+        <div id="linkBox" class="link-box">
+            <p>Share this link with your friend:</p>
+            <input type="text" id="gameLink" readonly>
+            <button onclick="copyLink()">📋 Copy Link</button>
         </div>
     </div>
 
-    <div id="myBoard"></div>
+    <!-- Game Container -->
+    <div id="gameContainer" class="game-container">
+        <div class="timer-container">
+            <div id="timer-black" class="timer-box">Black: 10:00</div>
+            <div id="timer-white" class="timer-box">White: 10:00</div>
+        </div>
+
+        <div class="button-container" id="buttonParent">
+            <button class="timer-button" data-time="10">10 Min</button>
+            <button class="timer-button" data-time="15">15 Min</button>
+            <button class="timer-button" data-time="20">20 Min</button>
+
+            <div class="custom-time-box">
+                <input type="number" id="customTimeInput" placeholder="Min" min="1" max="60">
+                <button id="customTimeBtn">Play</button>
+            </div>
+        </div>
+
+        <div class="board-and-history">
+            <div id="myBoard"></div>
+            <div id="moveHistory" class="move-history"></div>
+        </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameOverlay" class="game-overlay">
+        <div class="game-over-content">
+            <h2 id="gameOverText">Game Over</h2>
+            <button id="newGameBtn" class="menu-button">New Game</button>
+        </div>
+    </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js" integrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"
+        integrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD"
+        crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="engine.js"></script>
     <script src="script.js"></script>
 
 </body>
+
 </html>

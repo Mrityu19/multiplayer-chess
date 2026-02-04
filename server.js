@@ -14,29 +14,29 @@ app.get('/', (req, res) => {
 });
 
 // --- STATE MANAGEMENT ---
-// Store all active games here: { roomId: { white: 'socketId', black: 'socketId', fen: '...', ... } }
-const games = {}; 
-let waitingPlayer = null; // For 'Play Online' matchmaking
+const games = {};
+let waitingPlayer = null;
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     // --- JOIN GAME LOGIC ---
-    socket.on('joinGame', ({ type, roomId }) => {
-        
+    socket.on('joinGame', ({ type, roomId, timeLimit = 600 }) => {
+
         // OPTION 1: Play Online (Random Matchmaking)
         if (type === 'online') {
-            if (waitingPlayer && waitingPlayer !== socket.id) {
+            if (waitingPlayer && waitingPlayer.id !== socket.id) {
                 // Found a match!
-                const matchRoom = `online-${waitingPlayer}-${socket.id}`;
-                const opponent = waitingPlayer;
+                const matchRoom = `online-${waitingPlayer.id}-${socket.id}`;
+                const opponent = waitingPlayer.id;
+                const opponentTime = waitingPlayer.timeLimit;
                 waitingPlayer = null;
 
                 // Create Game Room
                 games[matchRoom] = {
                     white: opponent,
                     black: socket.id,
-                    timers: { w: 600, b: 600 }, // Default 10 min
+                    timers: { w: opponentTime, b: timeLimit },
                     timerInterval: null,
                     turn: 'w'
                 };
@@ -48,37 +48,35 @@ io.on('connection', (socket) => {
                 // Notify players
                 io.to(opponent).emit('gameStart', { color: 'w', roomId: matchRoom });
                 socket.emit('gameStart', { color: 'b', roomId: matchRoom });
-                
+
                 startGameTimer(matchRoom);
 
             } else {
                 // No one waiting, add to queue
-                waitingPlayer = socket.id;
+                waitingPlayer = { id: socket.id, timeLimit: timeLimit };
                 socket.emit('status', 'Searching for an opponent...');
             }
-        } 
+        }
 
         // OPTION 2: Play with Friend (Specific Room)
         else if (type === 'friend' && roomId) {
             socket.join(roomId);
-            
+
             // Check if room exists or create it
             if (!games[roomId]) {
-                games[roomId] = { 
-                    white: socket.id, 
+                games[roomId] = {
+                    white: socket.id,
                     black: null,
-                    timers: { w: 600, b: 600 },
+                    timers: { w: timeLimit, b: timeLimit },
                     timerInterval: null,
                     turn: 'w'
                 };
                 socket.emit('status', 'Waiting for friend to join...');
-                socket.emit('playerRole', 'w'); // First joiner is white
             } else {
                 // Second player joins
                 if (!games[roomId].black) {
                     games[roomId].black = socket.id;
-                    socket.emit('playerRole', 'b');
-                    
+
                     // Start the game!
                     io.to(games[roomId].white).emit('gameStart', { color: 'w', roomId });
                     socket.emit('gameStart', { color: 'b', roomId });
@@ -103,18 +101,36 @@ io.on('connection', (socket) => {
     socket.on('gameEnd', (roomId) => {
         if (games[roomId]?.timerInterval) {
             clearInterval(games[roomId].timerInterval);
+            delete games[roomId];
         }
     });
 
     socket.on('disconnect', () => {
-        if (waitingPlayer === socket.id) waitingPlayer = null;
-        // Cleanup games logic could be added here
+        console.log('User disconnected:', socket.id);
+
+        // Remove from waiting queue
+        if (waitingPlayer?.id === socket.id) {
+            waitingPlayer = null;
+        }
+
+        // Find and cleanup games
+        for (const [roomId, game] of Object.entries(games)) {
+            if (game.white === socket.id || game.black === socket.id) {
+                // Notify opponent
+                const opponent = game.white === socket.id ? game.black : game.white;
+                io.to(opponent).emit('gameOver', 'Opponent disconnected. You win!');
+
+                // Cleanup
+                if (game.timerInterval) clearInterval(game.timerInterval);
+                delete games[roomId];
+            }
+        }
     });
 });
 
 function startGameTimer(roomId) {
     if (games[roomId].timerInterval) clearInterval(games[roomId].timerInterval);
-    
+
     games[roomId].timerInterval = setInterval(() => {
         const game = games[roomId];
         if (!game) return;
@@ -126,6 +142,7 @@ function startGameTimer(roomId) {
             clearInterval(game.timerInterval);
             let winner = game.turn === 'w' ? 'Black' : 'White';
             io.to(roomId).emit('gameOver', winner + " wins on time!");
+            delete games[roomId];
         }
     }, 1000);
 }
