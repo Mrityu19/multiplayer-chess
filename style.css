@@ -1,132 +1,54 @@
-body {
-    background-color: #262421; /* Lichess dark background */
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: white;
-    margin: 0;
-    padding: 20px;
-}
+/* ... Keep your existing Board/Sidebar CSS ... */
 
-/* --- Layout Container --- */
-.main-container {
+/* --- MENU OVERLAY --- */
+.menu-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
     display: flex;
     justify-content: center;
-    gap: 30px; /* Space between board and sidebar */
-    margin-top: 20px;
-    flex-wrap: wrap; /* Wraps on mobile phones */
+    align-items: center;
+    z-index: 1000;
 }
 
-/* --- Left Column: Board --- */
-.board-section {
-    width: 600px;
+.menu-box {
+    background: #302e2c;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    width: 350px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    border: 1px solid #444;
 }
-#myBoard {
+
+.menu-box h1 { margin-top: 0; color: #fff; }
+.menu-box p { color: #aaa; }
+
+.menu-btn {
+    display: block;
     width: 100%;
-}
-
-/* --- Right Column: Sidebar --- */
-.sidebar {
-    width: 300px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* --- Timers --- */
-.timer-box {
-    background-color: #333;
-    padding: 10px;
-    font-size: 24px;
-    font-weight: bold;
-    text-align: center;
-    border-radius: 5px;
-    border: 2px solid #444;
-}
-
-.active-timer {
-    background-color: #28a745; /* Green */
-    border-color: #fff;
-    color: white;
-}
-
-/* --- Move History List --- */
-.move-history {
-    height: 250px;
-    background-color: #302e2c;
-    border-radius: 5px;
-    overflow-y: auto; /* Scrollable */
-    padding: 10px;
-    font-family: monospace;
-    font-size: 16px;
-    display: flex;
-    flex-direction: column;
-}
-
-.history-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 2px 10px;
-    border-bottom: 1px solid #444;
-}
-.history-row:nth-child(even) {
-    background-color: #3a3836;
-}
-.move-number { color: #888; width: 30px; }
-.move-white { color: #ddd; width: 60px; font-weight: bold; }
-.move-black { color: #ddd; width: 60px; font-weight: bold; }
-
-.history-placeholder {
-    color: #666;
-    text-align: center;
-    margin-top: 100px;
-}
-
-/* --- Controls Panel --- */
-.controls-panel {
-    background-color: #302e2c;
-    padding: 15px;
-    border-radius: 5px;
-    text-align: center;
-}
-.controls-panel p { margin: 0 0 10px 0; color: #aaa; }
-
-.button-row {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-}
-
-.timer-button {
-    background: #444;
-    color: white;
+    padding: 12px;
+    margin: 10px 0;
+    font-size: 18px;
     border: none;
-    padding: 8px 15px;
-    border-radius: 4px;
+    border-radius: 5px;
     cursor: pointer;
+    transition: transform 0.2s;
 }
-.timer-button:hover { background: #555; }
+.menu-btn:hover { transform: scale(1.02); }
 
-.custom-time-box {
-    display: flex;
-    gap: 5px;
-    justify-content: center;
-}
-#customTimeInput {
-    padding: 5px;
-    width: 50px;
-    border-radius: 4px;
-    border: none;
-    text-align: center;
-}
-#customTimeBtn {
-    background: #28a745;
-    color: white;
-    border: none;
-    padding: 5px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-}
+.online-btn { background: #28a745; color: white; }
+.friend-btn { background: #007bff; color: white; }
 
-/* --- Highlights --- */
-.highlight-move {
-    background-color: rgba(255, 255, 0, 0.5) !important;
+.status-msg { margin-top: 15px; color: #ffc107; font-weight: bold; }
+
+/* Link Input */
+.input-group { display: flex; gap: 5px; }
+.input-group input { 
+    flex: 1; padding: 8px; background: #222; 
+    border: 1px solid #444; color: #fff; 
+}
+.input-group button { 
+    padding: 8px 12px; background: #666; 
+    color: white; border: none; cursor: pointer; 
 }

@@ -1,167 +1,121 @@
 const socket = io();
 var game = new Chess();
+var board = null;
 var playerRole = null;
+var currentRoomId = null;
 
-// --- AUDIO ---
-const moveSound = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_common/default/move-self.mp3');
-const captureSound = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_common/default/capture.mp3');
-const notifySound = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_common/default/notify.mp3');
+// --- 1. HANDLE MENU & ROOMS ---
+const urlParams = new URLSearchParams(window.location.search);
+const roomParam = urlParams.get('room');
 
-// --- HIGHLIGHT HELPERS ---
-var $board = $('#myBoard');
-var lastMoveSource = null;
-var lastMoveTarget = null;
-
-function removeHighlights() {
-    $board.find('.square-55d63').removeClass('highlight-move');
+if (roomParam) {
+    // If URL has ?room=xyz, join that friend room automatically
+    document.getElementById('startMenu').style.display = 'none'; // Hide menu temporarily
+    currentRoomId = roomParam;
+    socket.emit('joinGame', { type: 'friend', roomId: currentRoomId });
 }
 
-function highlightMove(source, target) {
-    removeHighlights();
-    lastMoveSource = source;
-    lastMoveTarget = target;
-    $board.find('.square-' + source).addClass('highlight-move');
-    $board.find('.square-' + target).addClass('highlight-move');
+// Button: Play Online
+document.getElementById('btnOnline').addEventListener('click', () => {
+    document.getElementById('statusText').innerText = "Searching for opponent...";
+    socket.emit('joinGame', { type: 'online' });
+});
+
+// Button: Play with Friend
+document.getElementById('btnFriend').addEventListener('click', () => {
+    // Generate random Room ID and redirect
+    const randomId = Math.random().toString(36).substring(2, 8);
+    window.location.href = `?room=${randomId}`;
+});
+
+// Helper: Copy Link
+window.copyLink = function() {
+    const copyText = document.getElementById("gameLink");
+    copyText.select();
+    document.execCommand("copy");
+    alert("Link copied! Send it to your friend.");
 }
 
-// --- NEW: UPDATE MOVE HISTORY SIDEBAR ---
-function updateMoveHistory() {
-    const history = game.history();
-    const historyElement = document.getElementById('moveHistory');
-    historyElement.innerHTML = ''; // Clear old history
+// --- 2. SOCKET EVENTS ---
 
-    // Loop through moves in pairs (White, Black)
-    for (let i = 0; i < history.length; i += 2) {
-        const moveNumber = (i / 2) + 1;
-        const whiteMove = history[i];
-        const blackMove = history[i + 1] || ''; // Might be empty if it's white's turn
-
-        const row = document.createElement('div');
-        row.className = 'history-row';
-        row.innerHTML = `
-            <span class="move-number">${moveNumber}.</span>
-            <span class="move-white">${whiteMove}</span>
-            <span class="move-black">${blackMove}</span>
-        `;
-        historyElement.appendChild(row);
-    }
+socket.on('status', (msg) => {
+    document.getElementById('startMenu').style.display = 'flex'; // Show menu
+    document.getElementById('statusText').innerText = msg;
     
-    // Auto-scroll to bottom
-    historyElement.scrollTop = historyElement.scrollHeight;
-}
-
-// --- BOARD CONFIG ---
-function onDragStart(source, piece, position, orientation) {
-    if (game.game_over()) return false;
-    if (!playerRole || game.turn() !== playerRole) return false;
-    if ((playerRole === 'w' && piece.search(/^b/) !== -1) ||
-        (playerRole === 'b' && piece.search(/^w/) !== -1)) {
-        return false;
+    // If waiting for friend, show the link
+    if(msg.includes('Waiting for friend')) {
+        document.getElementById('linkBox').style.display = 'block';
+        document.getElementById('gameLink').value = window.location.href;
     }
+});
+
+socket.on('gameStart', ({ color, roomId }) => {
+    document.getElementById('startMenu').style.display = 'none'; // Hide menu
+    currentRoomId = roomId;
+    playerRole = color;
+    
+    // Initialize Board
+    if(board) board.destroy();
+    board = Chessboard('myBoard', {
+        draggable: true,
+        position: 'start',
+        orientation: color === 'w' ? 'white' : 'black',
+        onDragStart: onDragStart,
+        onDrop: onDrop,
+        onSnapEnd: onSnapEnd,
+        pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+    });
+
+    alert("Game Started! You are " + (color === 'w' ? "White" : "Black"));
+});
+
+socket.on('move', (msg) => {
+    game.move(msg);
+    board.position(game.fen());
+    updateMoveHistory();
+    // Play sounds here...
+});
+
+socket.on('timerUpdate', (timers) => {
+    // Update Timer UI (same as before)
+    const format = (t) => {
+        let m = Math.floor(t / 60);
+        let s = t % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+    document.getElementById('timer-white').innerText = "White: " + format(timers.w);
+    document.getElementById('timer-black').innerText = "Black: " + format(timers.b);
+});
+
+// --- 3. GAME LOGIC (Standard) ---
+function onDragStart(source, piece) {
+    if (game.game_over() || !playerRole || game.turn() !== playerRole) return false;
+    if ((playerRole === 'w' && piece.search(/^b/) !== -1) || 
+        (playerRole === 'b' && piece.search(/^w/) !== -1)) return false;
 }
 
 function onDrop(source, target) {
-    var move = game.move({
-        from: source,
-        to: target,
-        promotion: 'q'
-    });
-
+    const move = game.move({ from: source, to: target, promotion: 'q' });
     if (move === null) return 'snapback';
 
-    // Sound & Visuals
-    if (move.captured) captureSound.play();
-    else moveSound.play();
-    highlightMove(source, target);
-    updateMoveHistory(); // Update the sidebar list
-
-    socket.emit('move', { from: source, to: target, promotion: 'q' });
-    checkStatus();
+    socket.emit('move', { roomId: currentRoomId, move: { from: source, to: target, promotion: 'q' } });
+    updateMoveHistory();
 }
 
-function onSnapEnd() {
-    board.position(game.fen());
-    if (lastMoveSource && lastMoveTarget) highlightMove(lastMoveSource, lastMoveTarget);
-}
+function onSnapEnd() { board.position(game.fen()); }
 
-var config = {
-    draggable: true,
-    position: 'start',
-    onDragStart: onDragStart,
-    onDrop: onDrop,
-    onSnapEnd: onSnapEnd,
-    pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-};
-
-var board = Chessboard('myBoard', config);
-
-// --- BUTTON LISTENERS ---
-document.querySelectorAll('.timer-button').forEach(button => {
-    button.addEventListener('click', () => {
-        if(button.id !== 'customTimeBtn') socket.emit('startGame', button.dataset.time);
-    });
-});
-
-document.getElementById('customTimeBtn').addEventListener('click', () => {
-    const customTime = document.getElementById('customTimeInput').value;
-    if (customTime && customTime > 0) socket.emit('startGame', customTime);
-});
-
-// --- SOCKET LISTENERS ---
-socket.on('playerRole', function(role) {
-    playerRole = role;
-    if (role === 'b') {
-        board.orientation('black');
-        alert("You are playing as BLACK");
-    } else if (role === 'w') {
-        board.orientation('white');
-        alert("You are playing as WHITE");
+function updateMoveHistory() {
+    // Same history code as before...
+    const history = game.history();
+    const list = document.getElementById('moveHistory');
+    let html = '';
+    for(let i=0; i<history.length; i+=2) {
+        html += `<div class="history-row">
+            <span class="move-number">${(i/2)+1}.</span>
+            <span class="move-white">${history[i]}</span>
+            <span class="move-black">${history[i+1]||''}</span>
+        </div>`;
     }
-});
-
-socket.on('move', function (msg) {
-    var move = game.move(msg);
-    board.position(game.fen());
-    updateMoveHistory(); // Update list when opponent moves
-    checkStatus();
-    
-    if (move) {
-        if (move.captured) captureSound.play();
-        else notifySound.play();
-        highlightMove(move.from, move.to);
-    }
-});
-
-socket.on('timerUpdate', function (timers) {
-    function formatTime(seconds) {
-        let m = Math.floor(seconds / 60);
-        let s = seconds % 60;
-        return `${m}:${s < 10 ? '0' : ''}${s}`;
-    }
-
-    document.getElementById('timer-white').innerText = "White: " + formatTime(timers.w);
-    document.getElementById('timer-black').innerText = "Black: " + formatTime(timers.b);
-
-    if (game.turn() === 'w') {
-        document.getElementById('timer-white').classList.add('active-timer');
-        document.getElementById('timer-black').classList.remove('active-timer');
-    } else {
-        document.getElementById('timer-black').classList.add('active-timer');
-        document.getElementById('timer-white').classList.remove('active-timer');
-    }
-});
-
-socket.on('gameOver', function (msg) {
-    alert(msg);
-});
-
-function checkStatus() {
-    if (game.in_checkmate()) {
-        let winner = game.turn() === 'w' ? 'Black' : 'White';
-        alert(`Game Over! ${winner} Wins by Checkmate!`);
-        socket.emit('gameEnd'); 
-    } else if (game.in_draw()) {
-        alert("Game Over! Draw.");
-        socket.emit('gameEnd');
-    }
+    list.innerHTML = html;
+    list.scrollTop = list.scrollHeight;
 }

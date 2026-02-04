@@ -13,71 +13,122 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Game State
-let players = { white: null, black: null };
-let currentTurn = 'w';
-let timers = { w: 600, b: 600 };
-let timerInterval = null;
+// --- STATE MANAGEMENT ---
+// Store all active games here: { roomId: { white: 'socketId', black: 'socketId', fen: '...', ... } }
+const games = {}; 
+let waitingPlayer = null; // For 'Play Online' matchmaking
 
 io.on('connection', (socket) => {
-    
-    // 1. Assign Role
-    if (!players.white) {
-        players.white = socket.id;
-        socket.emit('playerRole', 'w');
-        socket.emit('timerUpdate', timers); 
-    } else if (!players.black) {
-        players.black = socket.id;
-        socket.emit('playerRole', 'b');
-        socket.emit('timerUpdate', timers);
-    } else {
-        socket.emit('playerRole', 'spectator');
-    }
+    console.log('User connected:', socket.id);
 
-    // 2. Start Game
-    socket.on('startGame', (minutes) => {
-        // SAFETY: Only allow start if both players are present (Optional)
-        // if (!players.white || !players.black) return; 
-
-        timers = { w: minutes * 60, b: minutes * 60 };
-        currentTurn = 'w';
+    // --- JOIN GAME LOGIC ---
+    socket.on('joinGame', ({ type, roomId }) => {
         
-        if (timerInterval) clearInterval(timerInterval);
+        // OPTION 1: Play Online (Random Matchmaking)
+        if (type === 'online') {
+            if (waitingPlayer && waitingPlayer !== socket.id) {
+                // Found a match!
+                const matchRoom = `online-${waitingPlayer}-${socket.id}`;
+                const opponent = waitingPlayer;
+                waitingPlayer = null;
 
-        io.emit('timerUpdate', timers);
+                // Create Game Room
+                games[matchRoom] = {
+                    white: opponent,
+                    black: socket.id,
+                    timers: { w: 600, b: 600 }, // Default 10 min
+                    timerInterval: null,
+                    turn: 'w'
+                };
 
-        timerInterval = setInterval(() => {
-            timers[currentTurn]--; 
-            io.emit('timerUpdate', timers);
+                // Join both players
+                socket.join(matchRoom);
+                io.sockets.sockets.get(opponent)?.join(matchRoom);
 
-            if (timers[currentTurn] <= 0) {
-                clearInterval(timerInterval);
-                let winner = currentTurn === 'w' ? 'Black' : 'White';
-                io.emit('gameOver', winner + " wins on time!");
+                // Notify players
+                io.to(opponent).emit('gameStart', { color: 'w', roomId: matchRoom });
+                socket.emit('gameStart', { color: 'b', roomId: matchRoom });
+                
+                startGameTimer(matchRoom);
+
+            } else {
+                // No one waiting, add to queue
+                waitingPlayer = socket.id;
+                socket.emit('status', 'Searching for an opponent...');
             }
-        }, 1000);
+        } 
+
+        // OPTION 2: Play with Friend (Specific Room)
+        else if (type === 'friend' && roomId) {
+            socket.join(roomId);
+            
+            // Check if room exists or create it
+            if (!games[roomId]) {
+                games[roomId] = { 
+                    white: socket.id, 
+                    black: null,
+                    timers: { w: 600, b: 600 },
+                    timerInterval: null,
+                    turn: 'w'
+                };
+                socket.emit('status', 'Waiting for friend to join...');
+                socket.emit('playerRole', 'w'); // First joiner is white
+            } else {
+                // Second player joins
+                if (!games[roomId].black) {
+                    games[roomId].black = socket.id;
+                    socket.emit('playerRole', 'b');
+                    
+                    // Start the game!
+                    io.to(games[roomId].white).emit('gameStart', { color: 'w', roomId });
+                    socket.emit('gameStart', { color: 'b', roomId });
+                    startGameTimer(roomId);
+                } else {
+                    socket.emit('status', 'Room is full (Spectator mode)');
+                }
+            }
+        }
     });
 
-    // 3. Handle Move
-    socket.on('move', (move) => {
-        socket.broadcast.emit('move', move);
-        currentTurn = currentTurn === 'w' ? 'b' : 'w';
+    // --- GAME MOVE LOGIC ---
+    socket.on('move', ({ roomId, move }) => {
+        const game = games[roomId];
+        if (game) {
+            socket.to(roomId).emit('move', move);
+            game.turn = game.turn === 'w' ? 'b' : 'w';
+        }
     });
 
-    // 4. NEW: Stop Timer on Checkmate/Draw 🛑
-    socket.on('gameEnd', () => {
-        if (timerInterval) clearInterval(timerInterval);
+    // --- GAME END LOGIC ---
+    socket.on('gameEnd', (roomId) => {
+        if (games[roomId]?.timerInterval) {
+            clearInterval(games[roomId].timerInterval);
+        }
     });
 
-    // 5. Handle Disconnect
     socket.on('disconnect', () => {
-        if (players.white === socket.id) players.white = null;
-        else if (players.black === socket.id) players.black = null;
-        
-        // Optional: Stop timer if a player leaves
-        // if (timerInterval) clearInterval(timerInterval);
+        if (waitingPlayer === socket.id) waitingPlayer = null;
+        // Cleanup games logic could be added here
     });
 });
+
+function startGameTimer(roomId) {
+    if (games[roomId].timerInterval) clearInterval(games[roomId].timerInterval);
+    
+    games[roomId].timerInterval = setInterval(() => {
+        const game = games[roomId];
+        if (!game) return;
+
+        game.timers[game.turn]--;
+        io.to(roomId).emit('timerUpdate', game.timers);
+
+        if (game.timers[game.turn] <= 0) {
+            clearInterval(game.timerInterval);
+            let winner = game.turn === 'w' ? 'Black' : 'White';
+            io.to(roomId).emit('gameOver', winner + " wins on time!");
+        }
+    }, 1000);
+}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
