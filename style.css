@@ -1,65 +1,132 @@
-/* Container for the custom input */
-.custom-time-box {
-    display: flex;
-    gap: 5px;
-    align-items: center;
-    background-color: #444; /* Match button background */
-    padding: 5px;
-    border-radius: 5px;
-}
-
-/* Style the input field */
-#customTimeInput {
-    width: 50px;
-    padding: 5px;
-    border: none;
-    border-radius: 3px;
-    text-align: center;
-    font-size: 14px;
-}
-
-/* Make the custom play button slightly different */
-#customTimeBtn {
-    padding: 5px 15px; 
-    background-color: #28a745; /* Green color to indicate "Go" */
+body {
+    background-color: #262421; /* Lichess dark background */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+    margin: 0;
+    padding: 20px;
 }
 
-#customTimeBtn:hover {
-    background-color: #218838;
-}
-
-/* Timer Styling */
-.timer-container {
+/* --- Layout Container --- */
+.main-container {
     display: flex;
-    justify-content: space-between;
-    width: 400px; /* Same width as board */
-    margin-bottom: 10px;
+    justify-content: center;
+    gap: 30px; /* Space between board and sidebar */
+    margin-top: 20px;
+    flex-wrap: wrap; /* Wraps on mobile phones */
 }
 
+/* --- Left Column: Board --- */
+.board-section {
+    width: 600px;
+}
+#myBoard {
+    width: 100%;
+}
+
+/* --- Right Column: Sidebar --- */
+.sidebar {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* --- Timers --- */
 .timer-box {
     background-color: #333;
-    color: #fff;
-    padding: 10px 20px;
-    font-size: 20px;
+    padding: 10px;
+    font-size: 24px;
     font-weight: bold;
-    border-radius: 5px;
-    border: 2px solid #555;
-    width: 120px;
     text-align: center;
+    border-radius: 5px;
+    border: 2px solid #444;
 }
 
-/* Highlight the active timer */
 .active-timer {
     background-color: #28a745; /* Green */
     border-color: #fff;
-    box-shadow: 0 0 10px #28a745;
+    color: white;
 }
 
-/* --- NEW: Board Highlights --- */
+/* --- Move History List --- */
+.move-history {
+    height: 250px;
+    background-color: #302e2c;
+    border-radius: 5px;
+    overflow-y: auto; /* Scrollable */
+    padding: 10px;
+    font-family: monospace;
+    font-size: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.history-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 10px;
+    border-bottom: 1px solid #444;
+}
+.history-row:nth-child(even) {
+    background-color: #3a3836;
+}
+.move-number { color: #888; width: 30px; }
+.move-white { color: #ddd; width: 60px; font-weight: bold; }
+.move-black { color: #ddd; width: 60px; font-weight: bold; }
+
+.history-placeholder {
+    color: #666;
+    text-align: center;
+    margin-top: 100px;
+}
+
+/* --- Controls Panel --- */
+.controls-panel {
+    background-color: #302e2c;
+    padding: 15px;
+    border-radius: 5px;
+    text-align: center;
+}
+.controls-panel p { margin: 0 0 10px 0; color: #aaa; }
+
+.button-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.timer-button {
+    background: #444;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.timer-button:hover { background: #555; }
+
+.custom-time-box {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+#customTimeInput {
+    padding: 5px;
+    width: 50px;
+    border-radius: 4px;
+    border: none;
+    text-align: center;
+}
+#customTimeBtn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 5px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* --- Highlights --- */
 .highlight-move {
-    background-color: rgba(255, 255, 0, 0.5) !important; /* Transparent Yellow */
+    background-color: rgba(255, 255, 0, 0.5) !important;
 }

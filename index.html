@@ -8,31 +8,41 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    
-    <h1 style="color: white; margin-bottom: 10px;">Multiplayer Chess</h1>
 
-    <div class="timer-container">
-        <div id="timer-white" class="timer-box">Black: 10:00</div>
-        <div id="timer-black" class="timer-box">White: 10:00</div>
-    </div>
+    <h1 style="text-align: center; color: #ddd; margin: 10px 0;">Multiplayer Chess</h1>
 
-    <div class="button-container" id="buttonParent">
-        <button class="timer-button" data-time="10">10 Min</button>
-        <button class="timer-button" data-time="15">15 Min</button>
-        <button class="timer-button" data-time="20">20 Min</button>
-        
-        <div class="custom-time-box">
-            <input type="number" id="customTimeInput" placeholder="Min" min="1" max="60">
-            <button id="customTimeBtn" class="timer-button">Play</button>
+    <div class="main-container">
+        <div class="board-section">
+            <div id="myBoard"></div>
+        </div>
+
+        <div class="sidebar">
+            
+            <div id="timer-black" class="timer-box">Black: 10:00</div>
+
+            <div class="move-history" id="moveHistory">
+                <div class="history-placeholder">Game moves will appear here...</div>
+            </div>
+
+            <div id="timer-white" class="timer-box">White: 10:00</div>
+
+            <div class="controls-panel">
+                <p>Start New Game:</p>
+                <div class="button-row">
+                    <button class="timer-button" data-time="10">10m</button>
+                    <button class="timer-button" data-time="15">15m</button>
+                    <button class="timer-button" data-time="20">20m</button>
+                </div>
+                <div class="custom-time-box">
+                    <input type="number" id="customTimeInput" placeholder="Min" min="1" max="60">
+                    <button id="customTimeBtn">Play</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div id="myBoard" style="width: 400px"></div>
-
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js" integrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD" crossorigin="anonymous"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>

@@ -2,7 +2,7 @@ const socket = io();
 var game = new Chess();
 var playerRole = null;
 
-// --- AUDIO SOUNDS ---
+// --- AUDIO ---
 const moveSound = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_common/default/move-self.mp3');
 const captureSound = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_common/default/capture.mp3');
 const notifySound = new Audio('https://images.chesscomfiles.com/chess-themes/sounds/_common/default/notify.mp3');
@@ -18,16 +18,39 @@ function removeHighlights() {
 
 function highlightMove(source, target) {
     removeHighlights();
-    // Save state so we can re-apply if board redraws
     lastMoveSource = source;
     lastMoveTarget = target;
-    
-    // Apply CSS class
     $board.find('.square-' + source).addClass('highlight-move');
     $board.find('.square-' + target).addClass('highlight-move');
 }
 
-// --- 1. Board Config ---
+// --- NEW: UPDATE MOVE HISTORY SIDEBAR ---
+function updateMoveHistory() {
+    const history = game.history();
+    const historyElement = document.getElementById('moveHistory');
+    historyElement.innerHTML = ''; // Clear old history
+
+    // Loop through moves in pairs (White, Black)
+    for (let i = 0; i < history.length; i += 2) {
+        const moveNumber = (i / 2) + 1;
+        const whiteMove = history[i];
+        const blackMove = history[i + 1] || ''; // Might be empty if it's white's turn
+
+        const row = document.createElement('div');
+        row.className = 'history-row';
+        row.innerHTML = `
+            <span class="move-number">${moveNumber}.</span>
+            <span class="move-white">${whiteMove}</span>
+            <span class="move-black">${blackMove}</span>
+        `;
+        historyElement.appendChild(row);
+    }
+    
+    // Auto-scroll to bottom
+    historyElement.scrollTop = historyElement.scrollHeight;
+}
+
+// --- BOARD CONFIG ---
 function onDragStart(source, piece, position, orientation) {
     if (game.game_over()) return false;
     if (!playerRole || game.turn() !== playerRole) return false;
@@ -46,24 +69,19 @@ function onDrop(source, target) {
 
     if (move === null) return 'snapback';
 
-    // 1. Play Sound (Self)
+    // Sound & Visuals
     if (move.captured) captureSound.play();
     else moveSound.play();
-
-    // 2. Highlight Move
     highlightMove(source, target);
+    updateMoveHistory(); // Update the sidebar list
 
-    // 3. Send to Server
     socket.emit('move', { from: source, to: target, promotion: 'q' });
     checkStatus();
 }
 
 function onSnapEnd() {
     board.position(game.fen());
-    // Re-apply highlight because board.position() clears it
-    if (lastMoveSource && lastMoveTarget) {
-        highlightMove(lastMoveSource, lastMoveTarget);
-    }
+    if (lastMoveSource && lastMoveTarget) highlightMove(lastMoveSource, lastMoveTarget);
 }
 
 var config = {
@@ -77,26 +95,19 @@ var config = {
 
 var board = Chessboard('myBoard', config);
 
-// --- 2. Button Logic (Start Timer) ---
+// --- BUTTON LISTENERS ---
 document.querySelectorAll('.timer-button').forEach(button => {
     button.addEventListener('click', () => {
-        // Only allow click if no ID (prevent duplicates) or handle strictly
-        if(button.id !== 'customTimeBtn') {
-             socket.emit('startGame', button.dataset.time);
-        }
+        if(button.id !== 'customTimeBtn') socket.emit('startGame', button.dataset.time);
     });
 });
 
-// Custom time button
 document.getElementById('customTimeBtn').addEventListener('click', () => {
     const customTime = document.getElementById('customTimeInput').value;
-    if (customTime && customTime > 0) {
-        socket.emit('startGame', customTime);
-    }
+    if (customTime && customTime > 0) socket.emit('startGame', customTime);
 });
 
-// --- 3. Socket Listeners ---
-
+// --- SOCKET LISTENERS ---
 socket.on('playerRole', function(role) {
     playerRole = role;
     if (role === 'b') {
@@ -111,18 +122,16 @@ socket.on('playerRole', function(role) {
 socket.on('move', function (msg) {
     var move = game.move(msg);
     board.position(game.fen());
+    updateMoveHistory(); // Update list when opponent moves
     checkStatus();
     
-    // Play Sound & Highlight (Opponent)
     if (move) {
         if (move.captured) captureSound.play();
-        else notifySound.play(); // Different sound for opponent
-        
+        else notifySound.play();
         highlightMove(move.from, move.to);
     }
 });
 
-// --- Handle Timer Updates ---
 socket.on('timerUpdate', function (timers) {
     function formatTime(seconds) {
         let m = Math.floor(seconds / 60);
@@ -142,7 +151,6 @@ socket.on('timerUpdate', function (timers) {
     }
 });
 
-// --- Handle Game Over ---
 socket.on('gameOver', function (msg) {
     alert(msg);
 });
