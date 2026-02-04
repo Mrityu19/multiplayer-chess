@@ -11,8 +11,8 @@ class ChessEngine {
     async init() {
         return new Promise((resolve, reject) => {
             try {
-                // Use lila stockfish (Lichess's version)
-                this.stockfish = new Worker('https://unpkg.com/stockfish.js@10.0.2/stockfish.js');
+                // Use local stockfish
+                this.stockfish = new Worker('lib/stockfish.js');
 
                 this.stockfish.onmessage = (event) => {
                     const message = event.data;
