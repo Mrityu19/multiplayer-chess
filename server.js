@@ -7,10 +7,72 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+// Middleware
 app.use(express.static(__dirname));
+app.use(express.json());
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// ===== GEMINI AI CHAT PROXY =====
+// This endpoint proxies requests to Google Gemini API
+app.post('/api/chat', async (req, res) => {
+    const { apiKey, context, question } = req.body;
+
+    if (!apiKey) {
+        return res.status(400).json({ error: 'API key is required. Get one free at aistudio.google.com' });
+    }
+
+    if (!question) {
+        return res.status(400).json({ error: 'Question is required' });
+    }
+
+    try {
+        // Build the chess expert prompt
+        const systemPrompt = `You are an expert chess coach with the teaching style of Jeremy Silman (author of "How to Reassess Your Chess"). You speak directly to the student, explaining concepts clearly with specific references to the position.
+
+CURRENT POSITION CONTEXT:
+${context}
+
+INSTRUCTIONS:
+- Answer the student's question about this specific position
+- Reference specific squares, pieces, and files by name (e.g., "your rook on a1", "the open d-file")
+- Explain the strategic reasoning (imbalances, plans, threats)
+- Keep responses concise but educational (2-4 sentences usually)
+- Use chess concepts: open files, outposts, piece activity, pawn structure, king safety
+- If they ask about a specific move, explain why it's good or bad based on the position`;
+
+        const userPrompt = `Student's question: ${question}`;
+
+        // Call Gemini API
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: systemPrompt + '\n\n' + userPrompt }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 300
+                }
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            return res.status(400).json({ error: data.error.message || 'Gemini API error' });
+        }
+
+        const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 'I could not generate a response.';
+        res.json({ response: aiResponse });
+
+    } catch (error) {
+        console.error('Gemini API Error:', error);
+        res.status(500).json({ error: 'Failed to connect to AI service. Check your API key.' });
+    }
 });
 
 // --- STATE MANAGEMENT ---

@@ -1,11 +1,11 @@
-// Stockfish Engine Wrapper - Using CDN-hosted stockfish.js
 class ChessEngine {
     constructor() {
         this.stockfish = null;
         this.ready = false;
-        this.callbacks = {};
+        this.callbacks = {}; // not effectively used, but kept for legacy
         this.evalCallback = null;
-        this.pendingCallbacks = []; // Queue for callbacks
+        this.pendingCallbacks = []; // Queue for "bestmove" callbacks
+        this.queuedRequests = []; // Queue for analysis/move requests if engine busy
         this.isProcessing = false;
     }
 
@@ -17,7 +17,7 @@ class ChessEngine {
 
                 this.stockfish.onmessage = (event) => {
                     const message = event.data;
-                    console.log('Stockfish:', message);
+                    // console.log('Stockfish:', message); // Uncomment for debugging
 
                     // Engine is ready
                     if (message === 'uciok') {
@@ -28,10 +28,11 @@ class ChessEngine {
                     // Best move received
                     if (message.startsWith('bestmove')) {
                         const match = message.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
+                        this.isProcessing = false; // Mark as free immediately
+
                         if (match && this.pendingCallbacks.length > 0) {
                             const callback = this.pendingCallbacks.shift();
                             const move = match[1];
-                            this.isProcessing = false;
 
                             if (callback) {
                                 callback({
@@ -40,10 +41,10 @@ class ChessEngine {
                                     promotion: move.length > 4 ? move[4] : undefined
                                 });
                             }
-
-                            // Process next in queue if any
-                            this.processQueue();
                         }
+
+                        // Process next in queue if any
+                        this.processQueue();
                     }
 
                     // Evaluation info
@@ -108,53 +109,58 @@ class ChessEngine {
         });
     }
 
-    setPosition(fen) {
-        if (!this.ready) return;
-        this.stockfish.postMessage(`position fen ${fen}`);
-    }
-
     processQueue() {
-        if (this.isProcessing || this.pendingCallbacks.length === 0) return;
-        if (!this.queuedRequests || this.queuedRequests.length === 0) return;
+        if (this.isProcessing || this.queuedRequests.length === 0) return;
 
         const request = this.queuedRequests.shift();
         this.isProcessing = true;
+        this.pendingCallbacks.push(request.callback);
 
-        this.stockfish.postMessage(`setoption name Skill Level value ${request.skillLevel}`);
+        // Reset options first to clear previous limits
+        // this.stockfish.postMessage('setoption name UCI_LimitStrength value false'); 
+
+        // Set difficulty based on request type
+        if (request.features && request.features.elo) {
+            this.stockfish.postMessage('setoption name UCI_LimitStrength value true');
+            this.stockfish.postMessage(`setoption name UCI_Elo value ${request.features.elo}`);
+        } else if (request.features && request.features.skillLevel !== undefined) {
+            this.stockfish.postMessage('setoption name UCI_LimitStrength value false');
+            this.stockfish.postMessage(`setoption name Skill Level value ${request.features.skillLevel}`);
+        }
+
         this.stockfish.postMessage(`position fen ${request.fen}`);
         this.stockfish.postMessage(`go depth ${request.depth || 10}`);
     }
 
-    getBestMove(fen, skillLevel = 20, callback) {
+    getBestMove(fen, difficultySettings, callback) {
         if (!this.ready) {
             console.error('Engine not ready');
             return;
         }
 
-        console.log('Requesting best move for FEN:', fen);
-
-        // Add callback to queue
-        this.pendingCallbacks.push(callback);
-
-        // If not currently processing, start immediately
-        if (!this.isProcessing) {
-            this.isProcessing = true;
-
-            // Set skill level (0-20, where 20 is strongest)
-            this.stockfish.postMessage(`setoption name Skill Level value ${skillLevel}`);
-            this.stockfish.postMessage(`position fen ${fen}`);
-            this.stockfish.postMessage('go depth 10'); // Reduced depth for faster response
+        // Difficulty Settings can be an object { elo: 1500 } or just a number (legacy skill level)
+        let features = {};
+        if (typeof difficultySettings === 'number') {
+            features.skillLevel = difficultySettings; // Legacy support
         } else {
-            // Queue the request
-            if (!this.queuedRequests) this.queuedRequests = [];
-            this.queuedRequests.push({ fen, skillLevel, depth: 10 });
+            features = difficultySettings;
         }
+
+        const request = { fen, features, depth: 10, callback };
+
+        // If not currently processing, start immediately (via queue to standardize)
+        this.queuedRequests.push(request);
+        this.processQueue();
     }
 
     startAnalysis(fen, callback) {
         if (!this.ready) return;
 
         this.evalCallback = callback;
+        // Analysis should ideally run at max strength
+        this.stockfish.postMessage('setoption name UCI_LimitStrength value false');
+        this.stockfish.postMessage('setoption name Skill Level value 20');
+
         this.stockfish.postMessage(`position fen ${fen}`);
         this.stockfish.postMessage('go infinite');
     }

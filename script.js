@@ -3,7 +3,8 @@ var game = new Chess();
 var board = null;
 var playerRole = null;
 var currentRoomId = null;
-var selectedTime = 600; // Default 10 minutes
+var selectedTime = 300; // Default 5 minutes
+var selectedIncrement = 0; // Default no increment
 var gameMode = null; // 'online', 'friend', or 'computer'
 var engine = null;
 var computerLevel = 10; // Stockfish skill level (1-20)
@@ -33,54 +34,152 @@ const ELO_RANGES = {
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('room');
 
+// --- NEW DEFINITIONS ---
+var pendingPremove = null; // {source, target, promotion}
+var maxUnlockedLevel = parseInt(localStorage.getItem('chess_max_level')) || 1;
+
+// 20 Levels Definition
+const LEVELS = [];
+for (let i = 1; i <= 20; i++) {
+    // Linear progression from 250 to 2700 approx
+    // 250 + (i-1) * 130  -> Level 1=250, Level 20=2720
+    const elo = 250 + (i - 1) * 130;
+    LEVELS.push({ level: i, elo: elo, desc: `Level ${i}` });
+}
+
+// Map selected level to engine settings
+function getEngineSettings(levelIndex) {
+    // levelIndex is 0-19
+    const levelData = LEVELS[levelIndex];
+
+    // For lower levels, use UCI_Elo to limit strength effectively
+    // For higher levels (e.g., 18-20), let Stockfish run free or high skill
+
+    if (levelIndex < 18) {
+        return { elo: levelData.elo };
+    } else {
+        // High levels: Use legacy Skill Level or max
+        return { skillLevel: 20 };
+    }
+}
+
 if (roomParam) {
-    // If URL has ?room=xyz, join that friend room automatically
+    // If URL has ?room=xyz, show time setup for friend
     document.getElementById('startMenu').style.display = 'none';
-    document.getElementById('gameContainer').style.display = 'none';
+    document.getElementById('timeSetup').style.display = 'flex';
+    gameMode = 'friend';
     currentRoomId = roomParam;
-    socket.emit('joinGame', { type: 'friend', roomId: currentRoomId, timeLimit: selectedTime });
 } else {
     // Show menu, hide game
     document.getElementById('startMenu').style.display = 'flex';
     document.getElementById('gameContainer').style.display = 'none';
 }
 
-// Timer Button Selection (for multiplayer)
-document.querySelectorAll('.timer-button').forEach(btn => {
+// --- TIME CONTROL PRESET BUTTONS ---
+document.querySelectorAll('.preset-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-        selectedTime = parseInt(this.getAttribute('data-time')) * 60;
-        document.querySelectorAll('.timer-button').forEach(b => b.classList.remove('selected'));
+        // Remove selected from all
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
         this.classList.add('selected');
+
+        // Get time and increment
+        selectedTime = parseInt(this.getAttribute('data-time')) * 60;
+        selectedIncrement = parseInt(this.getAttribute('data-inc'));
+
+        // Update display
+        updateTimeDisplay();
     });
 });
 
-// Custom Time Button
-document.getElementById('customTimeBtn').addEventListener('click', () => {
-    const customMin = parseInt(document.getElementById('customTimeInput').value);
-    if (customMin && customMin > 0 && customMin <= 60) {
-        selectedTime = customMin * 60;
-        document.querySelectorAll('.timer-button').forEach(b => b.classList.remove('selected'));
-    }
+// Apply Custom Time
+document.getElementById('applyCustomTime').addEventListener('click', () => {
+    const minutes = parseInt(document.getElementById('customMinutes').value) || 10;
+    const increment = parseInt(document.getElementById('customIncrement').value) || 0;
+
+    selectedTime = minutes * 60;
+    selectedIncrement = increment;
+
+    // Remove preset selection
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('selected'));
+
+    updateTimeDisplay();
 });
 
-// Button: Play Online
+function updateTimeDisplay() {
+    const mins = Math.floor(selectedTime / 60);
+    const category = getTimeCategory(mins);
+    document.getElementById('selectedTimeDisplay').textContent =
+        `${mins}+${selectedIncrement} ${category}`;
+}
+
+function getTimeCategory(minutes) {
+    if (minutes <= 2) return 'Bullet';
+    if (minutes <= 5) return 'Blitz';
+    if (minutes <= 15) return 'Rapid';
+    return 'Classical';
+}
+
+// Button: Play Online - Show time setup first
 document.getElementById('btnOnline').addEventListener('click', () => {
     gameMode = 'online';
-    document.getElementById('statusText').innerText = "Searching for opponent...";
-    socket.emit('joinGame', { type: 'online', timeLimit: selectedTime });
+    document.getElementById('startMenu').style.display = 'none';
+    document.getElementById('timeSetup').style.display = 'flex';
 });
 
-// Button: Play with Friend
+// Button: Play with Friend - Show time setup first
 document.getElementById('btnFriend').addEventListener('click', () => {
     gameMode = 'friend';
     const randomId = Math.random().toString(36).substring(2, 8);
-    window.location.href = `?room=${randomId}`;
+    currentRoomId = randomId;
+    document.getElementById('startMenu').style.display = 'none';
+    document.getElementById('timeSetup').style.display = 'flex';
+});
+
+// Confirm Time and Start Game
+document.getElementById('confirmTimeBtn').addEventListener('click', () => {
+    document.getElementById('timeSetup').style.display = 'none';
+
+    if (gameMode === 'online') {
+        document.getElementById('startMenu').style.display = 'flex';
+        document.getElementById('statusText').innerText = "Searching for opponent...";
+        socket.emit('joinGame', {
+            type: 'online',
+            timeLimit: selectedTime,
+            increment: selectedIncrement
+        });
+    } else if (gameMode === 'friend') {
+        // Check if we came from a link (roomParam exists) or are creating new
+        if (roomParam) {
+            // Joining existing room via link
+            socket.emit('joinGame', {
+                type: 'friend',
+                roomId: currentRoomId,
+                timeLimit: selectedTime,
+                increment: selectedIncrement
+            });
+        } else {
+            // Creating new room - redirect with room id
+            window.location.href = `?room=${currentRoomId}`;
+        }
+    }
+});
+
+// Back from Time Setup
+document.getElementById('backFromTimeBtn').addEventListener('click', () => {
+    document.getElementById('timeSetup').style.display = 'none';
+    if (roomParam) {
+        window.location.href = window.location.pathname;
+    } else {
+        document.getElementById('startMenu').style.display = 'flex';
+    }
+    currentRoomId = null;
 });
 
 // Button: Play vs Computer - Show setup panel (no popup!)
 document.getElementById('btnComputer').addEventListener('click', () => {
     document.getElementById('startMenu').style.display = 'none';
     document.getElementById('computerSetup').style.display = 'flex';
+    renderLevelGrid(); // Render or Refresh Grid
 });
 
 // Back to Menu button
@@ -89,14 +188,38 @@ document.getElementById('backToMenu').addEventListener('click', () => {
     document.getElementById('startMenu').style.display = 'flex';
 });
 
-// Difficulty Slider
-document.getElementById('difficultySlider').addEventListener('input', function () {
-    const val = parseInt(this.value);
-    const range = ELO_RANGES[val];
-    document.getElementById('difficultyLabel').textContent = range.label;
-    document.getElementById('eloRange').textContent = `(${range.elo} ELO)`;
-    computerLevel = range.level;
-});
+// --- NEW: RENDER LEVEL GRID ---
+function renderLevelGrid() {
+    const container = document.getElementById('levelGridContainer');
+    if (!container) return; // Need to create this in HTML
+    container.innerHTML = '';
+
+    LEVELS.forEach((lvl, index) => {
+        const btn = document.createElement('div');
+        btn.className = 'level-btn';
+        if (lvl.level <= maxUnlockedLevel) {
+            btn.classList.add('unlocked');
+            if (lvl.level === computerLevel) btn.classList.add('selected');
+
+            btn.innerHTML = `<span class="lvl-num">${lvl.level}</span><span class="lvl-elo">${lvl.elo}</span>`;
+
+            btn.onclick = () => {
+                document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                computerLevel = lvl.level;
+
+                document.getElementById('difficultyLabel').textContent = `Level ${lvl.level}`;
+                document.getElementById('eloRange').textContent = `(${lvl.elo} ELO)`;
+            };
+        } else {
+            btn.classList.add('locked');
+            btn.innerHTML = `🔒<br><span class="lvl-elo">${lvl.elo}</span>`;
+        }
+
+        container.appendChild(btn);
+    });
+}
+// --------------------------------
 
 // Computer Timer Selection
 document.querySelectorAll('#computerSetup .timer-btn').forEach(btn => {
@@ -121,6 +244,7 @@ document.getElementById('startComputerGame').addEventListener('click', async () 
 
     // Reset game history
     gameHistory = [];
+    pendingPremove = null;
 
     // Initialize engine
     try {
@@ -143,7 +267,7 @@ document.getElementById('startComputerGame').addEventListener('click', async () 
             document.getElementById('timer-black').innerText = 'Black: ∞';
         }
 
-        showStatusMessage('Game started! You play as White.', 'success');
+        showStatusMessage(`Playing vs Level ${computerLevel} (${LEVELS[computerLevel - 1].elo} ELO)`, 'success');
 
     } catch (error) {
         console.error('Engine initialization failed:', error);
@@ -229,24 +353,17 @@ socket.on('gameStart', ({ color, roomId }) => {
     currentRoomId = roomId;
     playerRole = color;
     gameHistory = [];
+    pendingPremove = null;
 
     initializeBoard(color);
     showStatusMessage("Game started! You are " + (color === 'w' ? "White" : "Black"), 'success');
 });
 
 socket.on('move', (msg) => {
-    game.move(msg);
-    board.position(game.fen());
+    executeMove(msg, false); // false = not my move
 
-    // Store history
-    gameHistory.push({
-        fen: game.fen(),
-        move: msg,
-        san: game.history().slice(-1)[0]
-    });
-
-    updateMoveHistory();
-    checkGameOver();
+    // Check for premove
+    handlePremove();
 });
 
 socket.on('timerUpdate', (timers) => {
@@ -347,16 +464,80 @@ function initializeBoard(color) {
 }
 
 function onDragStart(source, piece) {
-    if (game.game_over() || !playerRole || game.turn() !== playerRole) return false;
+    if (game.game_over()) return false;
+
+    // PREMOVE LOGIC
+    // If it's NOT my turn, but I'm trying to move, check if I own the piece
+    if (game.turn() !== playerRole) {
+        if ((playerRole === 'w' && piece.search(/^w/) !== -1) ||
+            (playerRole === 'b' && piece.search(/^b/) !== -1)) {
+
+            // Allow drag to set premove (return true), but we need to handle "onDrop" specially
+            // However, chessboard.js onDrop only fires if the move is "legal" compared to current board?
+            // Actually, chessboard.js doesn't validate rules, only "onDrop" logic does.
+            // visual feedback for premove will happen in onDrop
+            return true;
+        }
+        return false;
+    }
+
+    // Normal move validation
+    if (!playerRole || game.turn() !== playerRole) return false;
     if ((playerRole === 'w' && piece.search(/^b/) !== -1) ||
         (playerRole === 'b' && piece.search(/^w/) !== -1)) return false;
 }
 
 function onDrop(source, target) {
+    // IS PREMOVE?
+    if (game.turn() !== playerRole) {
+        // Attempting to premove
+        const moves = game.moves({ verbose: true });
+        // We can't validate move legallity strictly yet because the board state isn't right
+        // We just store it. Logic: if source != target, assume intent to move.
+        if (source === target) return;
+
+        // Visual feedback for premove
+        pendingPremove = { from: source, to: target, promotion: 'q' };
+
+        // Highlight square to show premove is set (Custom CSS needed)
+        // For now, we just rely on visual snapback (board will snap piece back, but we stored intent)
+        // To make it look "stuck", we'd need to manipulate the board state or add markers.
+        // Simple 1st iteration: Snapback but store move.
+        showStatusMessage('Premove set!', 'info');
+        return 'snapback';
+    }
+
+    // NORMAL MOVE
     const prevScore = evaluatePosition();
     const move = game.move({ from: source, to: target, promotion: 'q' });
     if (move === null) return 'snapback';
 
+    // Clear any premove if I made a manual move
+    pendingPremove = null;
+
+    executeMyMove(source, target, move, prevScore);
+}
+
+function handlePremove() {
+    if (pendingPremove && game.turn() === playerRole) {
+        // Clear highlights
+        $('.board-b72b1 .square-55d63').removeClass('premove-highlight');
+
+        // Try to execute premove
+        const move = game.move(pendingPremove);
+        if (move) {
+            // Legal move!
+            board.position(game.fen());
+            executeMyMove(pendingPremove.from, pendingPremove.to, move, evaluatePosition());
+            showStatusMessage('Premove executed!', 'success');
+        } else {
+            showStatusMessage('Premove invalid.', 'error');
+        }
+        pendingPremove = null;
+    }
+}
+
+function executeMyMove(source, target, move, prevScore) {
     // Store in history
     gameHistory.push({
         fen: game.fen(),
@@ -371,7 +552,7 @@ function onDrop(source, target) {
 
     updateMoveHistory();
 
-    // Simple coach feedback based on material (doesn't use engine)
+    // Simple coach feedback
     if (gameMode === 'computer') {
         showSimpleCoachFeedback(prevScore, move);
     }
@@ -381,10 +562,24 @@ function onDrop(source, target) {
     // Computer's turn
     if (gameMode === 'computer' && game.turn() === 'b' && !game.game_over()) {
         showCoachMessage('🤔 Computer is thinking...');
-        setTimeout(() => {
-            makeComputerMove();
-        }, 300);
+        // Remove setTimeout and rely on engine callback
+        makeComputerMove();
     }
+}
+
+function executeMove(msg, isMyMove) {
+    const move = game.move(msg);
+    board.position(game.fen());
+
+    // Store history
+    gameHistory.push({
+        fen: game.fen(),
+        move: msg,
+        san: game.history().slice(-1)[0]
+    });
+
+    updateMoveHistory();
+    checkGameOver();
 }
 
 function onSnapEnd() {
@@ -397,27 +592,36 @@ function makeComputerMove() {
         return;
     }
 
-    console.log('Computer thinking at level:', computerLevel);
+    const levelSettings = getEngineSettings(computerLevel - 1); // 0-indexed
+    console.log('Computer thinking at level:', computerLevel, 'Settings:', levelSettings);
 
-    engine.getBestMove(game.fen(), computerLevel, (move) => {
+    engine.getBestMove(game.fen(), levelSettings, (move) => {
         console.log('Computer move received:', move);
 
-        if (move && !game.game_over()) {
-            const result = game.move(move);
+        // Add a tiny random delay to feel human if it's too fast? 
+        // Or just execute immediately. Let's do a minimal 200ms visual delay.
+        setTimeout(() => {
+            if (move && !game.game_over()) {
+                const result = game.move(move);
 
-            if (result) {
-                // Store in history
-                gameHistory.push({
-                    fen: game.fen(),
-                    move: move,
-                    san: result.san
-                });
+                if (result) {
+                    // Store in history
+                    gameHistory.push({
+                        fen: game.fen(),
+                        move: move,
+                        san: result.san
+                    });
 
-                board.position(game.fen());
-                updateMoveHistory();
-                checkGameOver();
+                    board.position(game.fen());
+                    updateMoveHistory();
+
+                    checkGameOver();
+
+                    // Trigger Premove Check
+                    handlePremove();
+                }
             }
-        }
+        }, 300);
     });
 }
 
@@ -734,8 +938,17 @@ function checkGameOver() {
         stopComputerTimer();
 
         let message = '';
+        let winner = null;
+
         if (game.in_checkmate()) {
-            message = (game.turn() === 'w' ? 'Black' : 'White') + ' wins by checkmate!';
+            winner = (game.turn() === 'w' ? 'Black' : 'White');
+            message = winner + ' wins by checkmate!';
+
+            // UNLOCK LEVEL
+            if (gameMode === 'computer' && winner === 'White') {
+                checkLevelUnlock();
+            }
+
         } else if (game.in_draw()) {
             message = 'Game drawn!';
         } else if (game.in_stalemate()) {
@@ -754,6 +967,17 @@ function checkGameOver() {
             document.getElementById('gameOverText').innerText = message;
             document.getElementById('gameOverlay').style.display = 'flex';
         }, 500);
+    }
+}
+
+// --- CHECK LEVEL UNLOCK ---
+function checkLevelUnlock() {
+    // Only unlock if we beat the max unlocked level, and we aren't at max yet
+    if (computerLevel === maxUnlockedLevel && maxUnlockedLevel < 20) {
+        maxUnlockedLevel++;
+        localStorage.setItem('chess_max_level', maxUnlockedLevel);
+        renderLevelGrid(); // Refresh UI if open? (Unlikely, but good practice)
+        showStatusMessage(`🎉 LEVEL ${maxUnlockedLevel} UNLOCKED!`, 'success');
     }
 }
 
@@ -852,7 +1076,7 @@ function analyzeCurrentPosition() {
         <h3>🤖 AI Analysis</h3>
         <p>Analyzing position...</p>
     `;
-    
+
     // Clear previous arrows
     clearAnalysisArrows();
 
@@ -867,7 +1091,7 @@ function analyzeCurrentPosition() {
 
         // Update eval bar
         updateEvalBar(score);
-        
+
         // Draw arrow for best move
         if (bestMove && bestMove.from && bestMove.to) {
             drawAnalysisArrow(bestMove.from, bestMove.to, 'good');
@@ -893,7 +1117,7 @@ function analyzeCurrentPosition() {
             let quality = '';
             let qualityEmoji = '';
             let qualityExplanation = '';
-            
+
             // Get Silman-style teaching for this position
             const silmanTeaching = getSilmanTeachingForAnalysis(pos, prevPos, tempGame);
 
@@ -948,7 +1172,7 @@ function analyzeCurrentPosition() {
 function getSilmanTeachingForAnalysis(pos, prevPos, tempGame) {
     const moveCount = gameHistory.indexOf(pos);
     const phase = getGamePhase(moveCount, tempGame.board());
-    
+
     const teachings = {
         opening: {
             blunder: "In the opening, losing material often comes from moving the same piece twice or neglecting development. Remember: 'Every move must contribute to development or center control.'",
@@ -978,7 +1202,7 @@ function getSilmanTeachingForAnalysis(pos, prevPos, tempGame) {
             quote: "The endgame is where games are won and lost. Technical precision separates masters from amateurs."
         }
     };
-    
+
     return teachings[phase] || teachings.middlegame;
 }
 
@@ -1002,14 +1226,14 @@ function clearAnalysisArrows() {
 function drawAnalysisArrow(from, to, type = 'good') {
     const boardEl = document.getElementById('analysisBoard');
     if (!boardEl) return;
-    
+
     const boardRect = boardEl.getBoundingClientRect();
     const squareSize = boardRect.width / 8;
-    
+
     // Convert algebraic notation to coordinates
     const fromCoords = squareToCoords(from, squareSize);
     const toCoords = squareToCoords(to, squareSize);
-    
+
     // Create or get SVG overlay for analysis board
     let svg = document.querySelector('#analysisOverlay .analysis-board-wrapper .arrow-overlay');
     if (!svg) {
@@ -1022,7 +1246,7 @@ function drawAnalysisArrow(from, to, type = 'good') {
             wrapper.appendChild(svg);
         }
     }
-    
+
     // Add arrow definition if not present
     if (!svg.querySelector('defs')) {
         svg.innerHTML = `
@@ -1033,7 +1257,7 @@ function drawAnalysisArrow(from, to, type = 'good') {
             </defs>
         `;
     }
-    
+
     // Create arrow line
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', fromCoords.x);
@@ -1045,14 +1269,14 @@ function drawAnalysisArrow(from, to, type = 'good') {
     line.setAttribute('stroke-linecap', 'round');
     line.setAttribute('marker-end', 'url(#arrowhead-analysis)');
     line.setAttribute('opacity', '0.8');
-    
+
     svg.appendChild(line);
 }
 
 function squareToCoords(square, squareSize) {
     const file = square.charCodeAt(0) - 'a'.charCodeAt(0);
     const rank = parseInt(square[1]) - 1;
-    
+
     // For white's perspective (flip for black if needed)
     return {
         x: (file + 0.5) * squareSize,
@@ -1093,4 +1317,139 @@ function updateEvalBar(score) {
 
     const displayScore = score >= 0 ? '+' + score.toFixed(1) : score.toFixed(1);
     document.getElementById('evalScore').textContent = displayScore;
+}
+
+// ===== AI CHAT COACH (Gemini Integration) =====
+
+// Send chat message
+document.getElementById('sendChatBtn').addEventListener('click', sendChatMessage);
+document.getElementById('chatInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+});
+
+async function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const question = input.value.trim();
+    const apiKey = document.getElementById('geminiApiKey').value.trim();
+
+    if (!question) return;
+
+    if (!apiKey) {
+        addChatMessage('bot', '⚠️ Please paste your Gemini API key first. Click "Get Free Key" to get one!');
+        return;
+    }
+
+    // Clear input
+    input.value = '';
+
+    // Add user message to chat
+    addChatMessage('user', question);
+
+    // Show loading
+    const loadingId = addChatMessage('bot', '🤔 Thinking...', 'loading');
+
+    // Build rich context
+    const context = buildPositionContext();
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey, context, question })
+        });
+
+        const data = await response.json();
+
+        // Remove loading message
+        document.getElementById(loadingId)?.remove();
+
+        if (data.error) {
+            addChatMessage('bot', '❌ ' + data.error);
+        } else {
+            addChatMessage('bot', '🎓 ' + data.response);
+        }
+    } catch (error) {
+        document.getElementById(loadingId)?.remove();
+        addChatMessage('bot', '❌ Network error. Please try again.');
+    }
+}
+
+function addChatMessage(type, text, className = '') {
+    const container = document.getElementById('chatMessages');
+    const msgDiv = document.createElement('div');
+    const msgId = 'msg-' + Date.now();
+    msgDiv.id = msgId;
+    msgDiv.className = `chat-message ${type} ${className}`;
+    msgDiv.innerHTML = text;
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
+    return msgId;
+}
+
+function buildPositionContext() {
+    // Get current position from analysis
+    const pos = gameHistory[analysisIndex];
+    if (!pos) return 'No position available.';
+
+    const tempGame = new Chess(pos.fen);
+    const boardState = tempGame.board();
+    const moveCount = analysisIndex;
+    const phase = getGamePhase(moveCount, boardState);
+    const score = evaluatePositionFromFen(pos.fen);
+
+    // Build detailed piece locations
+    let whitePieces = [];
+    let blackPieces = [];
+
+    for (let rank = 0; rank < 8; rank++) {
+        for (let file = 0; file < 8; file++) {
+            const piece = boardState[rank][file];
+            if (piece) {
+                const square = String.fromCharCode('a'.charCodeAt(0) + file) + (8 - rank);
+                const pieceName = getPieceName(piece.type);
+                if (piece.color === 'w') {
+                    whitePieces.push(`${pieceName} on ${square}`);
+                } else {
+                    blackPieces.push(`${pieceName} on ${square}`);
+                }
+            }
+        }
+    }
+
+    // Build move history summary
+    const recentMoves = gameHistory.slice(Math.max(0, analysisIndex - 6), analysisIndex + 1)
+        .filter(h => h.san)
+        .map(h => h.san)
+        .join(' ');
+
+    // Get engine's best move if available
+    let bestMoveNote = '';
+
+    // Build the context string
+    return `
+POSITION (FEN): ${pos.fen}
+GAME PHASE: ${phase}
+MATERIAL EVALUATION: ${score >= 0 ? 'White +' + score.toFixed(1) : 'Black +' + Math.abs(score).toFixed(1)}
+WHOSE TURN: ${tempGame.turn() === 'w' ? 'White' : 'Black'}
+
+WHITE PIECES: ${whitePieces.join(', ')}
+BLACK PIECES: ${blackPieces.join(', ')}
+
+RECENT MOVES: ${recentMoves || 'Game just started'}
+${pos.san ? `LAST MOVE: ${pos.san}` : ''}
+
+POSITION NOTES:
+- ${tempGame.in_check() ? 'King is in CHECK!' : 'Not in check'}
+- ${tempGame.in_checkmate() ? 'CHECKMATE!' : ''}
+- ${tempGame.in_stalemate() ? 'Stalemate' : ''}
+- ${tempGame.in_draw() ? 'Position is drawn' : ''}
+    `.trim();
+}
+
+function getPieceName(type) {
+    const names = {
+        'k': 'King', 'q': 'Queen', 'r': 'Rook',
+        'b': 'Bishop', 'n': 'Knight', 'p': 'Pawn'
+    };
+    return names[type] || type;
 }
