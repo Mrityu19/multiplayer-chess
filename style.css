@@ -158,9 +158,9 @@ h1 {
 .timer-container {
     display: flex;
     justify-content: space-between;
-    width: 100%;
-    max-width: 500px;
-    margin-bottom: 10px;
+    width: 450px;
+    max-width: 450px;
+    margin: 0 auto 10px auto;
 }
 
 .timer-box {
@@ -406,9 +406,21 @@ h1 {
     color: #629924;
 }
 
-/* Board Highlights */
+/* Board Highlights - Last Move */
 .highlight-move {
-    box-shadow: inset 0 0 3px 3px yellow;
+    box-shadow: inset 0 0 4px 4px rgba(255, 255, 0, 0.6) !important;
+    background-color: rgba(255, 255, 0, 0.4) !important;
+}
+
+/* Highlight for source square (where piece moved from) */
+.highlight-from {
+    background-color: rgba(255, 255, 0, 0.35) !important;
+}
+
+/* Highlight for target square (where piece moved to) */
+.highlight-to {
+    background-color: rgba(255, 255, 0, 0.5) !important;
+    box-shadow: inset 0 0 3px 2px rgba(255, 200, 0, 0.7) !important;
 }
 
 /* Responsive Design */
@@ -1514,5 +1526,99 @@ h1 {
 
     .level-grid {
         grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* ===== CUSTOM RESIGN MODAL ===== */
+.custom-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 2500;
+    justify-content: center;
+    align-items: center;
+}
+
+.custom-modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background-color: #262421;
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    max-width: 400px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8);
+    animation: modalSlideIn 0.3s ease;
+}
+
+.modal-content h3 {
+    font-size: 1.5rem;
+    color: #fff;
+    margin: 0 0 15px 0;
+}
+
+.modal-content p {
+    color: #aca29a;
+    margin: 10px 0;
+    font-size: 1rem;
+}
+
+.resign-warning {
+    color: #ff6b6b;
+    font-weight: bold;
+    font-size: 0.95rem;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 25px;
+    justify-content: center;
+}
+
+.modal-btn {
+    padding: 12px 25px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.resign-btn-modal {
+    background-color: #8b0000;
+    color: white;
+}
+
+.resign-btn-modal:hover {
+    background-color: #a52a2a;
+    transform: translateY(-2px);
+}
+
+.cancel-btn-modal {
+    background-color: #504d49;
+    color: white;
+}
+
+.cancel-btn-modal:hover {
+    background-color: #629924;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
     }
 }

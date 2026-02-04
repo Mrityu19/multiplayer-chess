@@ -140,13 +140,28 @@ class ChessEngine {
 
         // Difficulty Settings can be an object { elo: 1500 } or just a number (legacy skill level)
         let features = {};
+        let depth = 10; // Default depth
+
         if (typeof difficultySettings === 'number') {
             features.skillLevel = difficultySettings; // Legacy support
+            depth = Math.max(3, Math.min(15, difficultySettings));
         } else {
             features = difficultySettings;
+            // Calculate depth based on ELO - lower ELO = shallower search
+            if (features.elo) {
+                if (features.elo <= 400) depth = 2;
+                else if (features.elo <= 600) depth = 3;
+                else if (features.elo <= 800) depth = 4;
+                else if (features.elo <= 1000) depth = 5;
+                else if (features.elo <= 1200) depth = 6;
+                else if (features.elo <= 1500) depth = 8;
+                else if (features.elo <= 1800) depth = 10;
+                else if (features.elo <= 2000) depth = 12;
+                else depth = 15;
+            }
         }
 
-        const request = { fen, features, depth: 10, callback };
+        const request = { fen, features, depth, callback };
 
         // If not currently processing, start immediately (via queue to standardize)
         this.queuedRequests.push(request);

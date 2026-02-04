@@ -517,6 +517,18 @@ function updateTimerDisplay() {
     }
 }
 
+// --- HIGHLIGHT LAST MOVE ---
+function highlightLastMove(from, to) {
+    // Clear previous highlights
+    $('.square-55d63').removeClass('highlight-from highlight-to highlight-move');
+
+    if (from && to) {
+        // Add highlight to source and target squares
+        $('.square-' + from).addClass('highlight-from');
+        $('.square-' + to).addClass('highlight-to');
+    }
+}
+
 // --- 4. GAME LOGIC ---
 function initializeBoard(color) {
     game = new Chess();
@@ -617,6 +629,9 @@ function handlePremove() {
 }
 
 function executeMyMove(source, target, move, prevScore) {
+    // Highlight the last move
+    highlightLastMove(source, target);
+
     // Store in history
     gameHistory.push({
         fen: game.fen(),
@@ -652,6 +667,9 @@ function executeMove(msg, isMyMove) {
     const move = game.move(msg);
     board.position(game.fen());
 
+    // Highlight the last move
+    highlightLastMove(msg.from, msg.to);
+
     // Store history
     gameHistory.push({
         fen: game.fen(),
@@ -686,6 +704,9 @@ function makeComputerMove() {
                 const result = game.move(move);
 
                 if (result) {
+                    // Highlight the computer's move
+                    highlightLastMove(move.from, move.to);
+
                     // Store in history
                     gameHistory.push({
                         fen: game.fen(),
@@ -1097,14 +1118,12 @@ function startGameAnalysis() {
 document.getElementById('firstMove').addEventListener('click', () => {
     analysisIndex = 0;
     updateAnalysisDisplay();
-    analyzeCurrentPosition();
 });
 
 document.getElementById('prevMove').addEventListener('click', () => {
     if (analysisIndex > 0) {
         analysisIndex--;
         updateAnalysisDisplay();
-        analyzeCurrentPosition();
     }
 });
 
@@ -1112,32 +1131,57 @@ document.getElementById('nextMove').addEventListener('click', () => {
     if (analysisIndex < gameHistory.length - 1) {
         analysisIndex++;
         updateAnalysisDisplay();
-        analyzeCurrentPosition();
     }
 });
 
 document.getElementById('lastMove').addEventListener('click', () => {
     analysisIndex = gameHistory.length - 1;
     updateAnalysisDisplay();
-    analyzeCurrentPosition();
 });
 
 document.getElementById('closeAnalysis').addEventListener('click', () => {
     document.getElementById('analysisOverlay').style.display = 'none';
+    clearAnalysisArrows();
     if (engine) engine.stopAnalysis();
 });
 
+// Clear analysis arrows helper
+function clearAnalysisArrows() {
+    const boardWrapper = document.querySelector('#analysisOverlay .analysis-board-wrapper');
+    if (boardWrapper) {
+        const svg = boardWrapper.querySelector('.arrow-overlay');
+        if (svg) {
+            // Remove all arrow elements except the defs
+            const defs = svg.querySelector('defs');
+            svg.innerHTML = '';
+            if (defs) {
+                svg.appendChild(defs);
+            }
+        }
+    }
+}
+
 function updateAnalysisDisplay() {
     const pos = gameHistory[analysisIndex];
+    if (!pos || !analysisBoard) return;
+
+    // Update board to exact FEN from history
     analysisBoard.position(pos.fen);
 
+    // Calculate move number and side correctly
     if (analysisIndex === 0) {
         document.getElementById('currentMoveNum').textContent = 'Start';
     } else {
-        const moveNum = Math.ceil(analysisIndex / 2);
-        const color = analysisIndex % 2 === 1 ? 'White' : 'Black';
-        document.getElementById('currentMoveNum').textContent = `${moveNum}. ${pos.san || ''}`;
+        // analysisIndex 1 = White's 1st move, 2 = Black's 1st move, 3 = White's 2nd, etc.
+        const moveNumber = Math.floor((analysisIndex + 1) / 2);
+        const side = analysisIndex % 2 === 1 ? 'White' : 'Black';
+        const moveSan = pos.san || '?';
+
+        document.getElementById('currentMoveNum').textContent = `${moveNumber}. ${side}: ${moveSan}`;
     }
+
+    // Trigger analysis
+    analyzeCurrentPosition();
 }
 
 function analyzeCurrentPosition() {
@@ -1147,7 +1191,7 @@ function analyzeCurrentPosition() {
     if (!engine || !engine.ready) {
         document.getElementById('aiExplanation').innerHTML = `
             <h3>🤖 AI Analysis</h3>
-            <p>Loading engine...</p>
+            <p>Engine loading...</p>
         `;
         return;
     }
@@ -1161,33 +1205,67 @@ function analyzeCurrentPosition() {
     // Clear previous arrows
     clearAnalysisArrows();
 
-    // Get evaluation for current position
-    engine.getBestMove(pos.fen, 20, (bestMove) => {
-        // Create a temp game to analyze
-        const tempGame = new Chess(pos.fen);
-        const turn = tempGame.turn();
+    // Get evaluation for current position - use skill level 20 for deep analysis
+    const analysisSettings = { skillLevel: 20 };
 
-        // Calculate simple material score
+    engine.getBestMove(pos.fen, analysisSettings, (bestMoveRaw) => {
+        // Create a temp game from the EXACT FEN to get legal moves
+        const tempGame = new Chess(pos.fen);
+
+        // Convert raw best move to SAN notation
+        let bestMoveSAN = null;
+        let bestMoveFrom = null;
+        let bestMoveTo = null;
+
+        if (bestMoveRaw) {
+            try {
+                // Try to make the move to get SAN
+                const moveObj = tempGame.move(bestMoveRaw);
+                if (moveObj) {
+                    bestMoveSAN = moveObj.san;
+                    bestMoveFrom = moveObj.from;
+                    bestMoveTo = moveObj.to;
+                    // Undo to restore position
+                    tempGame.undo();
+                }
+            } catch (e) {
+                console.error('Invalid best move from engine:', bestMoveRaw);
+            }
+        }
+
+        // Calculate material score
         const score = evaluatePositionFromFen(pos.fen);
 
         // Update eval bar
         updateEvalBar(score);
 
-        // Draw arrow for best move
-        if (bestMove && bestMove.from && bestMove.to) {
-            drawAnalysisArrow(bestMove.from, bestMove.to, 'good');
+        // Draw arrow for best move if valid
+        if (bestMoveFrom && bestMoveTo) {
+            drawAnalysisArrow(bestMoveFrom, bestMoveTo, 'good');
         }
+
+        // Detect and show opponent's threats (capturing moves)
+        const opponentMoves = tempGame.moves({ verbose: true });
+        const threats = opponentMoves.filter(move => move.captured || move.flags.includes('c'));
+
+        // Show up to 3 most dangerous threats in red
+        threats.slice(0, 3).forEach(threat => {
+            if (threat.from && threat.to) {
+                drawAnalysisArrow(threat.from, threat.to, 'threat');
+            }
+        });
 
         // Generate explanation
         let explanation = '';
 
         if (analysisIndex === 0) {
             explanation = `<div class="move-quality">📍 Starting Position</div>
-                <p>The game begins with all pieces in their starting squares. White has the first move advantage.</p>`;
+                <p>The game begins. White moves first.</p>
+                ${bestMoveSAN ? `<div class="best-move">💡 Recommended: <strong>${bestMoveSAN}</strong></div>` : ''}`;
         } else {
-            const playedMove = pos.san;
-            const prevFen = prevPos.fen;
-            const prevScore = evaluatePositionFromFen(prevFen);
+            const playedMove = pos.san || '?';
+            const prevFen = prevPos ? prevPos.fen : null;
+            const prevScore = prevFen ? evaluatePositionFromFen(prevFen) : 0;
             const scoreDiff = score - prevScore;
 
             // Determine who made this move
@@ -1199,39 +1277,39 @@ function analyzeCurrentPosition() {
             let qualityEmoji = '';
             let qualityExplanation = '';
 
-            // Get Silman-style teaching for this position
+            // Get Silman-style teaching
             const silmanTeaching = getSilmanTeachingForAnalysis(pos, prevPos, tempGame);
 
             if (adjustedDiff < -2) {
                 quality = 'Blunder';
                 qualityEmoji = '⚠️';
-                qualityExplanation = `${silmanTeaching.blunder}`;
+                qualityExplanation = silmanTeaching.blunder;
             } else if (adjustedDiff < -1) {
                 quality = 'Mistake';
                 qualityEmoji = '❌';
-                qualityExplanation = `${silmanTeaching.mistake}`;
+                qualityExplanation = silmanTeaching.mistake;
             } else if (adjustedDiff < -0.5) {
                 quality = 'Inaccuracy';
                 qualityEmoji = '⚡';
-                qualityExplanation = `${silmanTeaching.inaccuracy}`;
+                qualityExplanation = silmanTeaching.inaccuracy;
             } else if (adjustedDiff > 2) {
                 quality = 'Brilliant';
                 qualityEmoji = '💎';
-                qualityExplanation = `${silmanTeaching.brilliant}`;
+                qualityExplanation = silmanTeaching.brilliant;
             } else if (adjustedDiff > 1) {
                 quality = 'Great Move';
                 qualityEmoji = '✨';
-                qualityExplanation = `${silmanTeaching.great}`;
+                qualityExplanation = silmanTeaching.great;
             } else {
                 quality = 'Good';
                 qualityEmoji = '👍';
-                qualityExplanation = `${silmanTeaching.good}`;
+                qualityExplanation = silmanTeaching.good;
             }
 
-            // Best move suggestion with arrow indicator
+            // Best move suggestion in SAN notation
             let bestMoveStr = '';
-            if (bestMove && bestMove.from && bestMove.to) {
-                bestMoveStr = `<div class="best-move">💡 Best move: <strong>${bestMove.from} → ${bestMove.to}</strong> (shown with arrow)</div>`;
+            if (bestMoveSAN) {
+                bestMoveStr = `<div class="best-move">💡 Best move: <strong>${bestMoveSAN}</strong> (green arrow)</div>`;
             }
 
             explanation = `
@@ -1305,9 +1383,35 @@ function clearAnalysisArrows() {
 }
 
 function drawAnalysisArrow(from, to, type = 'good') {
+    const boardWrapper = document.querySelector('#analysisOverlay .analysis-board-wrapper');
     const boardEl = document.getElementById('analysisBoard');
-    if (!boardEl) return;
+    if (!boardEl || !boardWrapper) return;
 
+    // Set wrapper as relative positioned
+    boardWrapper.style.position = 'relative';
+
+    // Get or create SVG overlay
+    let svg = boardWrapper.querySelector('.arrow-overlay');
+    if (!svg) {
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'arrow-overlay');
+        svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;';
+        boardWrapper.appendChild(svg);
+
+        // Create marker definitions
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        defs.innerHTML = `
+            <marker id="arrowhead-good" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto">
+                <polygon points="0 0, 12 5, 0 10" fill="#4CAF50" />
+            </marker>
+            <marker id="arrowhead-threat" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto">
+                <polygon points="0 0, 12 5, 0 10" fill="#ff4444" />
+            </marker>
+        `;
+        svg.appendChild(defs);
+    }
+
+    // Get board dimensions
     const boardRect = boardEl.getBoundingClientRect();
     const squareSize = boardRect.width / 8;
 
@@ -1315,43 +1419,44 @@ function drawAnalysisArrow(from, to, type = 'good') {
     const fromCoords = squareToCoords(from, squareSize);
     const toCoords = squareToCoords(to, squareSize);
 
-    // Create or get SVG overlay for analysis board
-    let svg = document.querySelector('#analysisOverlay .analysis-board-wrapper .arrow-overlay');
-    if (!svg) {
-        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('class', 'arrow-overlay');
-        svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;';
-        const wrapper = document.querySelector('#analysisOverlay .analysis-board-wrapper');
-        if (wrapper) {
-            wrapper.style.position = 'relative';
-            wrapper.appendChild(svg);
-        }
-    }
+    // Calculate arrow direction and shorten it to not overlap with pieces
+    const dx = toCoords.x - fromCoords.x;
+    const dy = toCoords.y - fromCoords.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const unitX = dx / length;
+    const unitY = dy / length;
 
-    // Add arrow definition if not present
-    if (!svg.querySelector('defs')) {
-        svg.innerHTML = `
-            <defs>
-                <marker id="arrowhead-analysis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                    <polygon points="0 0, 10 3.5, 0 7" fill="#4CAF50" />
-                </marker>
-            </defs>
-        `;
-    }
+    // Shorten arrow by 25% of square size on each end
+    const offset = squareSize * 0.25;
+    const x1 = fromCoords.x + unitX * offset;
+    const y1 = fromCoords.y + unitY * offset;
+    const x2 = toCoords.x - unitX * offset;
+    const y2 = toCoords.y - unitY * offset;
+
+    const color = type === 'threat' ? '#ff4444' : '#4CAF50';
+    const markerId = type === 'threat' ? 'arrowhead-threat' : 'arrowhead-good';
 
     // Create arrow line
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', fromCoords.x);
-    line.setAttribute('y1', fromCoords.y);
-    line.setAttribute('x2', toCoords.x);
-    line.setAttribute('y2', toCoords.y);
-    line.setAttribute('stroke', type === 'blunder' ? '#ff6b6b' : '#4CAF50');
-    line.setAttribute('stroke-width', '8');
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', '6');
     line.setAttribute('stroke-linecap', 'round');
-    line.setAttribute('marker-end', 'url(#arrowhead-analysis)');
-    line.setAttribute('opacity', '0.8');
-
+    line.setAttribute('marker-end', `url(#${markerId})`);
+    line.setAttribute('opacity', '0.9');
     svg.appendChild(line);
+
+    // Add a circle at the start to show direction
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', x1);
+    circle.setAttribute('cy', y1);
+    circle.setAttribute('r', '4');
+    circle.setAttribute('fill', color);
+    circle.setAttribute('opacity', '0.8');
+    svg.appendChild(circle);
 }
 
 function squareToCoords(square, squareSize) {
@@ -1672,6 +1777,56 @@ if (backFromTimeBtn) {
         const friendLinkBox = document.getElementById('friendLinkBox');
         if (friendLinkBox) {
             friendLinkBox.style.display = 'none';
+        }
+    });
+}
+
+// ===== RESIGN MODAL HANDLERS =====
+const resignBtn = document.getElementById('resignBtn');
+const resignModal = document.getElementById('resignModal');
+const confirmResign = document.getElementById('confirmResign');
+const cancelResign = document.getElementById('cancelResign');
+
+if (resignBtn && resignModal) {
+    resignBtn.addEventListener('click', () => {
+        resignModal.classList.add('show');
+    });
+}
+
+if (cancelResign && resignModal) {
+    cancelResign.addEventListener('click', () => {
+        resignModal.classList.remove('show');
+    });
+}
+
+if (confirmResign && resignModal) {
+    confirmResign.addEventListener('click', () => {
+        resignModal.classList.remove('show');
+
+        // Actually resign the game
+        if (gameMode === 'computer') {
+            game.reset();
+            document.getElementById('gameContainer').style.display = 'none';
+            document.getElementById('startMenu').style.display = 'flex';
+            showStatusMessage('You resigned. Game over.', 'error');
+        } else if (currentRoomId) {
+            socket.emit('gameEnd', { roomId: currentRoomId, winner: playerRole === 'w' ? 'b' : 'w', reason: 'resignation' });
+            showStatusMessage('You resigned.', 'error');
+        }
+
+        // Stop timers
+        if (computerTimer) {
+            clearInterval(computerTimer);
+            computerTimer = null;
+        }
+    });
+}
+
+// Close modal on backdrop click
+if (resignModal) {
+    resignModal.addEventListener('click', (e) => {
+        if (e.target === resignModal) {
+            resignModal.classList.remove('show');
         }
     });
 }
