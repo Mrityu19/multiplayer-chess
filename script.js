@@ -70,6 +70,7 @@ document.getElementById('btnComputer').addEventListener('click', async () => {
 
     document.getElementById('startMenu').style.display = 'none';
     document.getElementById('gameContainer').style.display = 'block';
+    document.getElementById('buttonParent').style.display = 'none'; // Hide timer buttons
 
     // Initialize engine
     try {
@@ -113,6 +114,7 @@ document.getElementById('newGameBtn').addEventListener('click', () => {
 socket.on('status', (msg) => {
     document.getElementById('startMenu').style.display = 'flex';
     document.getElementById('gameContainer').style.display = 'none';
+    document.getElementById('buttonParent').style.display = 'flex'; // Show timer buttons
     document.getElementById('statusText').innerText = msg;
 
     // If waiting for friend, show the link
@@ -127,6 +129,7 @@ socket.on('status', (msg) => {
 socket.on('gameStart', ({ color, roomId }) => {
     document.getElementById('startMenu').style.display = 'none';
     document.getElementById('gameContainer').style.display = 'block';
+    document.getElementById('buttonParent').style.display = 'none'; // Hide timer buttons
     currentRoomId = roomId;
     playerRole = color;
 
