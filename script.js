@@ -131,6 +131,16 @@ document.getElementById('btnFriend').addEventListener('click', () => {
     gameMode = 'friend';
     const randomId = Math.random().toString(36).substring(2, 8);
     currentRoomId = randomId;
+
+    // Show the friend link box with the game URL
+    const friendLinkBox = document.getElementById('friendLinkBox');
+    const friendGameLink = document.getElementById('friendGameLink');
+    if (friendLinkBox && friendGameLink) {
+        const gameUrl = `${window.location.origin}${window.location.pathname}?room=${randomId}`;
+        friendGameLink.value = gameUrl;
+        friendLinkBox.style.display = 'block';
+    }
+
     document.getElementById('startMenu').style.display = 'none';
     document.getElementById('timeSetup').style.display = 'flex';
 });
@@ -148,21 +158,58 @@ document.getElementById('confirmTimeBtn').addEventListener('click', () => {
             increment: selectedIncrement
         });
     } else if (gameMode === 'friend') {
-        // Check if we came from a link (roomParam exists) or are creating new
-        if (roomParam) {
-            // Joining existing room via link
-            socket.emit('joinGame', {
-                type: 'friend',
-                roomId: currentRoomId,
-                timeLimit: selectedTime,
-                increment: selectedIncrement
-            });
-        } else {
-            // Creating new room - redirect with room id
-            window.location.href = `?room=${currentRoomId}`;
+        // For friend mode, we always want to set the room ID in the URL without reloading
+        // so the user can copy it immediately.
+
+        if (!roomParam) {
+            // If we created the room, update URL now
+            const newUrl = `${window.location.pathname}?room=${currentRoomId}`;
+            history.pushState({ path: newUrl }, '', newUrl);
         }
+
+        socket.emit('joinGame', {
+            type: 'friend',
+            roomId: currentRoomId,
+            timeLimit: selectedTime,
+            increment: selectedIncrement
+        });
     }
 });
+
+// ... (Rest of Back Buttons) ...
+
+// --- CHAT LOGIC ---
+document.getElementById('sendChatBtn').addEventListener('click', sendChat);
+document.getElementById('chatInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChat();
+});
+
+function sendChat() {
+    const input = document.getElementById('chatInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    // Add to my UI
+    addChatBubble(msg, 'me');
+
+    // Send to server
+    if (currentRoomId && (gameMode === 'online' || gameMode === 'friend')) {
+        socket.emit('chat', { roomId: currentRoomId, message: msg, sender: playerRole });
+    }
+
+    input.value = '';
+}
+
+function addChatBubble(msg, type) {
+    const container = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = `chat-bubble ${type}`;
+    div.textContent = msg;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+// ...
 
 // Back from Time Setup
 document.getElementById('backFromTimeBtn').addEventListener('click', () => {
@@ -190,8 +237,8 @@ document.getElementById('backToMenu').addEventListener('click', () => {
 
 // --- NEW: RENDER LEVEL GRID ---
 function renderLevelGrid() {
-    const container = document.getElementById('levelGridContainer');
-    if (!container) return; // Need to create this in HTML
+    const container = document.getElementById('levelGrid');
+    if (!container) return;
     container.innerHTML = '';
 
     LEVELS.forEach((lvl, index) => {
@@ -234,6 +281,17 @@ document.querySelectorAll('#computerSetup .timer-btn').forEach(btn => {
 // Start Computer Game Button
 document.getElementById('startComputerGame').addEventListener('click', async () => {
     gameMode = 'computer';
+
+    // Hide chat container for computer mode
+    const chatContainer = document.getElementById('chatContainer');
+    if (chatContainer) {
+        chatContainer.style.display = 'none';
+    }
+    // Also hide chat tab in mobile panel for computer mode
+    const mobileChatTab = document.querySelector('.panel-tab[data-tab="chat"]');
+    if (mobileChatTab) {
+        mobileChatTab.style.display = 'none';
+    }
 
     document.getElementById('computerSetup').style.display = 'none';
     document.getElementById('gameContainer').style.display = 'block';
@@ -355,6 +413,17 @@ socket.on('gameStart', ({ color, roomId }) => {
     gameHistory = [];
     pendingPremove = null;
 
+    // Show chat for multiplayer modes
+    const chatContainer = document.getElementById('chatContainer');
+    if (chatContainer) {
+        chatContainer.style.display = 'block';
+    }
+    // Show chat tab in mobile panel
+    const mobileChatTab = document.querySelector('.panel-tab[data-tab="chat"]');
+    if (mobileChatTab) {
+        mobileChatTab.style.display = 'block';
+    }
+
     initializeBoard(color);
     showStatusMessage("Game started! You are " + (color === 'w' ? "White" : "Black"), 'success');
 });
@@ -364,6 +433,16 @@ socket.on('move', (msg) => {
 
     // Check for premove
     handlePremove();
+});
+
+socket.on('chat', ({ message, sender }) => {
+    // Only show if it's from opponent (sender != playerRole) or if we want to show all
+    // But since we add our own locally, avoid duplicates if we broadcast to self.
+    // Server broadcasts to everyone in room including sender? 
+    // Wait, my server implementation used socket.to(roomId).emit which EXCLUDES sender.
+    // So this is only for opponent messages.
+
+    addChatBubble(message, 'opponent');
 });
 
 socket.on('timerUpdate', (timers) => {
@@ -552,16 +631,18 @@ function executeMyMove(source, target, move, prevScore) {
 
     updateMoveHistory();
 
-    // Simple coach feedback
+    // Simple coach feedback - REMOVED per user request
+    /*
     if (gameMode === 'computer') {
         showSimpleCoachFeedback(prevScore, move);
     }
+    */
 
     checkGameOver();
 
     // Computer's turn
     if (gameMode === 'computer' && game.turn() === 'b' && !game.game_over()) {
-        showCoachMessage('🤔 Computer is thinking...');
+        // showCoachMessage('🤔 Computer is thinking...'); // REMOVED
         // Remove setTimeout and rely on engine callback
         makeComputerMove();
     }
@@ -1452,4 +1533,145 @@ function getPieceName(type) {
         'b': 'Bishop', 'n': 'Knight', 'p': 'Pawn'
     };
     return names[type] || type;
+}
+
+// ===== COPY FRIEND LINK FUNCTION =====
+window.copyFriendLink = function () {
+    const linkInput = document.getElementById('friendGameLink');
+    if (linkInput) {
+        linkInput.select();
+        linkInput.setSelectionRange(0, 99999); // For mobile
+        try {
+            navigator.clipboard.writeText(linkInput.value);
+            showStatusMessage('Link copied! Send it to your friend.', 'success');
+        } catch (err) {
+            document.execCommand('copy');
+            showStatusMessage('Link copied!', 'success');
+        }
+    }
+}
+
+// ===== MOBILE PANEL LOGIC =====
+document.addEventListener('DOMContentLoaded', () => {
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobilePanel = document.getElementById('mobilePanel');
+    const closePanelBtn = document.getElementById('closeMobilePanel');
+    const panelTabs = document.querySelectorAll('.panel-tab');
+    const mobileSendBtn = document.getElementById('mobileSendBtn');
+    const mobileChatInput = document.getElementById('mobileChatInput');
+
+    // Create overlay element if not exists
+    let overlay = document.querySelector('.mobile-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'mobile-overlay';
+        document.body.appendChild(overlay);
+    }
+
+    // Open mobile panel
+    if (mobileMenuBtn && mobilePanel) {
+        mobileMenuBtn.addEventListener('click', () => {
+            mobilePanel.classList.add('open');
+            overlay.classList.add('active');
+            updateMobileMoveHistory();
+        });
+    }
+
+    // Close mobile panel
+    if (closePanelBtn) {
+        closePanelBtn.addEventListener('click', closeMobilePanel);
+    }
+    overlay.addEventListener('click', closeMobilePanel);
+
+    function closeMobilePanel() {
+        if (mobilePanel) mobilePanel.classList.remove('open');
+        overlay.classList.remove('active');
+    }
+
+    // Tab switching
+    panelTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            panelTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            const tabName = tab.getAttribute('data-tab');
+            document.querySelectorAll('.mobile-tab-content').forEach(c => c.classList.remove('active'));
+
+            if (tabName === 'moves') {
+                document.getElementById('mobileMoves')?.classList.add('active');
+            } else if (tabName === 'chat') {
+                document.getElementById('mobileChat')?.classList.add('active');
+            }
+        });
+    });
+
+    // Mobile chat send
+    if (mobileSendBtn && mobileChatInput) {
+        mobileSendBtn.addEventListener('click', sendMobileChat);
+        mobileChatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMobileChat();
+        });
+    }
+
+    function sendMobileChat() {
+        const msg = mobileChatInput.value.trim();
+        if (!msg) return;
+
+        // Add to mobile UI
+        addMobileChatBubble(msg, 'me');
+        // Also add to main UI
+        addChatBubble(msg, 'me');
+
+        // Send via socket
+        if (currentRoomId && (gameMode === 'online' || gameMode === 'friend')) {
+            socket.emit('chat', { roomId: currentRoomId, message: msg, sender: playerRole });
+        }
+
+        mobileChatInput.value = '';
+    }
+});
+
+function addMobileChatBubble(msg, type) {
+    const container = document.getElementById('mobileChatMessages');
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = `chat-bubble ${type}`;
+    div.textContent = msg;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+function updateMobileMoveHistory() {
+    const mobileHistory = document.getElementById('mobileMoveHistory');
+    if (!mobileHistory || !game) return;
+
+    const history = game.history();
+    let html = '';
+    for (let i = 0; i < history.length; i += 2) {
+        html += `<div class="history-row">
+            <span class="move-number">${(i / 2) + 1}.</span>
+            <span class="move-white">${history[i]}</span>
+            <span class="move-black">${history[i + 1] || ''}</span>
+        </div>`;
+    }
+    mobileHistory.innerHTML = html || '<p style="color:#888">No moves yet</p>';
+}
+
+// Sync incoming chat to mobile panel
+const originalAddChatBubble = addChatBubble;
+addChatBubble = function (msg, type) {
+    originalAddChatBubble(msg, type);
+    addMobileChatBubble(msg, type);
+};
+
+// Hide friend link box when going back from time setup
+const backFromTimeBtn = document.getElementById('backFromTimeBtn');
+if (backFromTimeBtn) {
+    const originalBackHandler = backFromTimeBtn.onclick;
+    backFromTimeBtn.addEventListener('click', () => {
+        const friendLinkBox = document.getElementById('friendLinkBox');
+        if (friendLinkBox) {
+            friendLinkBox.style.display = 'none';
+        }
+    });
 }

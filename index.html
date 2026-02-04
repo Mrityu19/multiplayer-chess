@@ -81,6 +81,15 @@
             Selected: <strong id="selectedTimeDisplay">5+0 Blitz</strong>
         </div>
 
+        <!-- Friend Mode Link Box -->
+        <div id="friendLinkBox" class="friend-link-box">
+            <p>📋 Share this link with your friend:</p>
+            <div class="link-copy-row">
+                <input type="text" id="friendGameLink" readonly>
+                <button onclick="copyFriendLink()" class="copy-btn">📋 Copy</button>
+            </div>
+        </div>
+
         <button id="confirmTimeBtn" class="menu-button">▶️ Start Game</button>
         <button id="backFromTimeBtn" class="back-button">← Back to Menu</button>
     </div>
@@ -145,9 +154,50 @@
                 <!-- Game Controls -->
                 <div class="game-controls">
                     <button id="resignBtn" class="resign-button">🏳️ Resign</button>
+                    <!-- Mobile Menu Toggle -->
+                    <button id="mobileMenuBtn" class="mobile-menu-btn">⋮</button>
                 </div>
             </div>
-            <div id="moveHistory" class="move-history"></div>
+
+            <div class="side-panel">
+                <div id="moveHistory" class="move-history"></div>
+
+                <!-- Chat Container -->
+                <div id="chatContainer" class="ai-chat-container">
+                    <h3>💬 Chat</h3>
+                    <div id="chatMessages" class="chat-messages">
+                        <div class="chat-message bot">Welcome! Messages will appear here.</div>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Type a message...">
+                        <button id="sendChatBtn" class="send-btn">➤</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Slide Panel -->
+            <div id="mobilePanel" class="mobile-panel">
+                <div class="mobile-panel-header">
+                    <span>Game Info</span>
+                    <button id="closeMobilePanel" class="close-panel-btn">✕</button>
+                </div>
+                <div class="mobile-panel-tabs">
+                    <button class="panel-tab active" data-tab="moves">📋 Moves</button>
+                    <button class="panel-tab" data-tab="chat">💬 Chat</button>
+                </div>
+                <div id="mobileMoves" class="mobile-tab-content active">
+                    <div id="mobileMoveHistory" class="mobile-move-history"></div>
+                </div>
+                <div id="mobileChat" class="mobile-tab-content">
+                    <div id="mobileChatMessages" class="mobile-chat-messages">
+                        <div class="chat-message bot">Messages appear here</div>
+                    </div>
+                    <div class="mobile-chat-input">
+                        <input type="text" id="mobileChatInput" placeholder="Type...">
+                        <button id="mobileSendBtn" class="send-btn">➤</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -155,7 +205,40 @@
     <div id="gameOverlay" class="game-overlay">
         <div class="game-over-content">
             <h2 id="gameOverText">Game Over</h2>
+            <button id="analyzeGameBtn" class="menu-button analyze-btn">📊 Analyze Game</button>
             <button id="newGameBtn" class="menu-button">🔄 New Game</button>
+        </div>
+    </div>
+
+    <!-- Analysis Overlay -->
+    <div id="analysisOverlay" class="analysis-overlay">
+        <div class="analysis-content">
+            <h2>📊 Game Analysis</h2>
+            <div class="analysis-main">
+                <div class="analysis-board-wrapper">
+                    <div id="analysisBoard"></div>
+                </div>
+                <div class="analysis-panel">
+                    <div class="eval-container">
+                        <div class="eval-bar">
+                            <div id="evalFill" class="eval-fill"></div>
+                        </div>
+                        <span id="evalScore">0.0</span>
+                    </div>
+                    <div class="move-navigator">
+                        <button id="firstMove" class="nav-btn">⏮</button>
+                        <button id="prevMove" class="nav-btn">◀</button>
+                        <span id="currentMoveNum">Start</span>
+                        <button id="nextMove" class="nav-btn">▶</button>
+                        <button id="lastMove" class="nav-btn">⏭</button>
+                    </div>
+                    <div id="aiExplanation" class="ai-explanation">
+                        <h3>🤖 AI Analysis</h3>
+                        <p>Click through moves to see analysis...</p>
+                    </div>
+                </div>
+            </div>
+            <button id="closeAnalysis" class="menu-button">Close Analysis</button>
         </div>
     </div>
 

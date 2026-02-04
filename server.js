@@ -159,6 +159,14 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- CHAT LOGIC ---
+    socket.on('chat', ({ roomId, message, sender }) => {
+        // Broadcast to room (including sender if needed, but usually we handle sender locally)
+        // Let's broadcast to everyone in room including sender to keep it simple, or exclude sender?
+        // Usually sender adds their own msg immediately.
+        socket.to(roomId).emit('chat', { message, sender });
+    });
+
     // --- GAME END LOGIC ---
     socket.on('gameEnd', (roomId) => {
         if (games[roomId]?.timerInterval) {
