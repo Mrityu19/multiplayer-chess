@@ -1,6 +1,7 @@
 /* General Page Styling */
 body {
-    background-color: #302e2b;
+    background-color: var(--tg-theme-bg-color, #302e2b);
+    color: var(--tg-theme-text-color, #ffffff);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     flex-direction: column;
@@ -8,8 +9,23 @@ body {
     justify-content: center;
     min-height: 100vh;
     margin: 0;
-    color: white;
+    padding: 0;
+    /* Remove padding for full screen */
+    overflow-x: hidden;
+    /* Prevent horizontal scroll */
+    width: 100%;
+    text-align: center;
 }
+
+/* Hide header in small screens or Telegram */
+/* You might want to toggle this class via JS if (tg.initData) */
+/* For now, let's just make it smaller or hidden on very small screens */
+@media (max-width: 480px) {
+    h1 {
+        display: none;
+    }
+}
+
 
 h1 {
     margin-top: 0;

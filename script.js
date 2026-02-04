@@ -34,6 +34,44 @@ const ELO_RANGES = {
 const urlParams = new URLSearchParams(window.location.search);
 const roomParam = urlParams.get('room');
 
+// --- TELEGRAM WEB APP INTEGRATION ---
+const tg = window.Telegram?.WebApp;
+let tgUser = null;
+
+if (tg) {
+    tg.ready();
+    tg.expand(); // Expand to full height
+
+    // Get user data
+    tgUser = tg.initDataUnsafe?.user;
+
+    // Handler Direct Mini App Links (t.me/bot/app?startapp=room_123)
+    // Telegram passes this in initDataUnsafe.start_param
+    const startParam = tg.initDataUnsafe?.start_param;
+    if (startParam && startParam.startsWith('room_')) {
+        // Override roomParam if coming from Telegram Deep Link
+        const roomId = startParam.replace('room_', '');
+
+        // We need to inject this into the logic below just like URL param
+        // Simplest way is to reload with the query param if it's missing, 
+        // OR just set a global that the logic below respects.
+        // Let's modify the roomParam check implementation below.
+        window.telegramRoomId = roomId;
+    }
+
+    if (tgUser) {
+        console.log('Telegram User:', tgUser);
+        // We could auto-set name here if we had a name field
+        // For now just storing it
+    }
+
+    // Apply Telegram Theme Colors
+    document.documentElement.style.setProperty('--tg-theme-bg-color', tg.backgroundColor || '#212121');
+    document.documentElement.style.setProperty('--tg-theme-text-color', tg.textColor || '#ffffff');
+    document.documentElement.style.setProperty('--tg-theme-button-color', tg.buttonColor || '#2ea6ff');
+    document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.buttonTextColor || '#ffffff');
+}
+
 // --- NEW DEFINITIONS ---
 var pendingPremove = null; // {source, target, promotion}
 var maxUnlockedLevel = parseInt(localStorage.getItem('chess_max_level')) || 1;
@@ -63,12 +101,15 @@ function getEngineSettings(levelIndex) {
     }
 }
 
-if (roomParam) {
+if (roomParam || window.telegramRoomId) {
+    // If URL has ?room=xyz OR Telegram start_param
+    const targetRoom = roomParam || window.telegramRoomId;
+
     // If URL has ?room=xyz, show time setup for friend
     document.getElementById('startMenu').style.display = 'none';
     document.getElementById('timeSetup').style.display = 'flex';
     gameMode = 'friend';
-    currentRoomId = roomParam;
+    currentRoomId = targetRoom;
 } else {
     // Show menu, hide game
     document.getElementById('startMenu').style.display = 'flex';

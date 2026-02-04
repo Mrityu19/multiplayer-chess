@@ -75,6 +75,106 @@ INSTRUCTIONS:
     }
 });
 
+// ===== TELEGRAM BOT INTEGRATION =====
+const TelegramBot = require('node-telegram-bot-api');
+
+// REPLACE THIS WITH YOUR ACTUAL BOT TOKEN FROM @BotFather
+const token = '8230610124:AAGlFXAYNmKZdvbq97Ej1C28BALFlzE2lyM';
+
+// Create a bot that uses 'polling' to fetch new updates
+let bot = null;
+let botUsername = 'GameFactoryBot'; // Default, will update on init
+const botAppShortName = 'chess'; // Must match the shortname set in BotFather
+
+if (token && token !== 'YOUR_BOT_TOKEN_HERE') {
+    try {
+        bot = new TelegramBot(token, { polling: true });
+        console.log('🤖 Telegram Bot started!');
+
+        // Get Bot Username for Deep Linking
+        bot.getMe().then((me) => {
+            botUsername = me.username;
+            console.log(`🤖 Bot Username: @${botUsername}`);
+        }).catch(e => console.error('Error fetching bot info:', e.message));
+
+        // Handle Polling Errors
+        bot.on('polling_error', (error) => {
+            console.error('Telegram Polling Error:', error.code, error.message);
+        });
+
+        // Handle /start (Welcome Message & Deep Linking)
+        bot.onText(/\/start(.*)/, (msg, match) => {
+            const chatId = msg.chat.id;
+            const firstName = msg.from.first_name || 'Player';
+            const startPayload = match[1] ? match[1].trim() : '';
+
+            console.log(`Received /start from ${firstName} with payload: "${startPayload}"`);
+
+            // ngrok HTTPS URL for Telegram Web App
+            let gameUrl = 'https://sheiklike-tommye-cherishable.ngrok-free.dev';
+
+            // If payload exists (e.g., room_123), append it
+            if (startPayload.startsWith('room_')) {
+                const roomId = startPayload.replace('room_', '');
+                gameUrl += `?room=${roomId}`;
+            }
+
+            bot.sendMessage(chatId, `♟️ *GameFactory Chess*\n\nWelcome, ${firstName}!\n${startPayload ? 'You were invited to a game!' : 'Ready to play?'}`, {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [[
+                        { text: "🎮 Play Now", web_app: { url: gameUrl } }
+                    ]]
+                }
+            }).catch(e => console.error('Error sending /start:', e.message));
+        });
+
+        // Handle /friend (Play with Friend Link)
+        bot.onText(/\/friend/, (msg) => {
+            const chatId = msg.chat.id;
+            bot.sendMessage(chatId, "🔗 *Play with a Friend*\nUse the button below to share a game invite into any chat!", {
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [[
+                        { text: "📨 Share Game Invite", switch_inline_query: "play" }
+                    ]]
+                }
+            }).catch(e => console.error('Error sending /friend:', e.message));
+        });
+
+        // Handle Inline Queries (Sharing the game)
+        bot.on('inline_query', (query) => {
+            // ngrok HTTPS URL
+            const gameUrl = 'https://sheiklike-tommye-cherishable.ngrok-free.dev';
+            const roomId = 'room_' + Date.now();
+
+            // DIRECT MINI APP LINK (GameFactory Style)
+            // This is the link that renders the big "LAUNCH" card
+            const directLink = `https://t.me/${botUsername}/${botAppShortName}?startapp=${roomId}`;
+
+            const results = [{
+                type: 'article',
+                id: 'share_game_' + Date.now(),
+                title: '♞ Send Game Invite',
+                description: 'Send a playable "Launch" card to your friend',
+                thumb_url: 'https://cdn-icons-png.flaticon.com/512/3002/3002598.png',
+                input_message_content: {
+                    // Sending the link directly causes Telegram to render the App Card
+                    message_text: directLink,
+                    disable_web_page_preview: false
+                }
+            }];
+
+            bot.answerInlineQuery(query.id, results).catch(e => console.error('Error answering inline query:', e.message));
+        });
+
+    } catch (e) {
+        console.error('Telegram Bot Init Error:', e);
+    }
+} else {
+    console.log('⚠️ Telegram Bot Token missing.');
+}
+
 // --- STATE MANAGEMENT ---
 const games = {};
 let waitingPlayer = null;
