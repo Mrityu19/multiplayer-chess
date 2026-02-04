@@ -1,4 +1,4 @@
-// Stockfish Engine Wrapper
+// Stockfish Engine Wrapper - Using CDN-hosted stockfish.js
 class ChessEngine {
     constructor() {
         this.stockfish = null;
@@ -9,40 +9,61 @@ class ChessEngine {
     }
 
     async init() {
-        return new Promise((resolve) => {
-            // Use Stockfish from CDN
-            this.stockfish = new Worker('https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js');
+        return new Promise((resolve, reject) => {
+            try {
+                // Use lila stockfish (Lichess's version)
+                this.stockfish = new Worker('https://unpkg.com/stockfish.js@10.0.2/stockfish.js');
 
-            this.stockfish.onmessage = (event) => {
-                const message = event.data;
+                this.stockfish.onmessage = (event) => {
+                    const message = event.data;
+                    console.log('Stockfish:', message);
 
-                // Engine is ready
-                if (message === 'uciok') {
-                    this.ready = true;
-                    resolve();
-                }
-
-                // Best move received
-                if (message.startsWith('bestmove')) {
-                    const match = message.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
-                    if (match && this.bestMoveCallback) {
-                        const move = match[1];
-                        this.bestMoveCallback({
-                            from: move.substring(0, 2),
-                            to: move.substring(2, 4),
-                            promotion: move.length > 4 ? move[4] : undefined
-                        });
+                    // Engine is ready
+                    if (message === 'uciok') {
+                        this.ready = true;
+                        resolve();
                     }
-                }
 
-                // Evaluation info
-                if (message.startsWith('info') && message.includes('score')) {
-                    this.parseEvaluation(message);
-                }
-            };
+                    // Best move received
+                    if (message.startsWith('bestmove')) {
+                        const match = message.match(/bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
+                        if (match && this.bestMoveCallback) {
+                            const move = match[1];
+                            this.bestMoveCallback({
+                                from: move.substring(0, 2),
+                                to: move.substring(2, 4),
+                                promotion: move.length > 4 ? move[4] : undefined
+                            });
+                        }
+                    }
 
-            // Initialize UCI
-            this.stockfish.postMessage('uci');
+                    // Evaluation info
+                    if (message.startsWith('info') && message.includes('score')) {
+                        this.parseEvaluation(message);
+                    }
+                };
+
+                this.stockfish.onerror = (error) => {
+                    console.error('Stockfish Worker Error:', error);
+                    reject(error);
+                };
+
+                // Initialize UCI
+                setTimeout(() => {
+                    this.stockfish.postMessage('uci');
+                }, 100);
+
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    if (!this.ready) {
+                        reject(new Error('Stockfish initialization timeout'));
+                    }
+                }, 10000);
+
+            } catch (error) {
+                console.error('Failed to create Stockfish worker:', error);
+                reject(error);
+            }
         });
     }
 
@@ -84,14 +105,17 @@ class ChessEngine {
     }
 
     getBestMove(fen, skillLevel = 20, callback) {
-        if (!this.ready) return;
+        if (!this.ready) {
+            console.error('Engine not ready');
+            return;
+        }
 
         this.bestMoveCallback = callback;
 
         // Set skill level (0-20, where 20 is strongest)
         this.stockfish.postMessage(`setoption name Skill Level value ${skillLevel}`);
         this.stockfish.postMessage(`position fen ${fen}`);
-        this.stockfish.postMessage('go depth 15');
+        this.stockfish.postMessage('go depth 10'); // Reduced depth for faster response
     }
 
     startAnalysis(fen, callback) {

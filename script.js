@@ -64,22 +64,35 @@ document.getElementById('btnComputer').addEventListener('click', async () => {
 
     // Ask for difficulty
     const difficulty = prompt('Choose difficulty (1-10):\\n1 = Beginner\\n5 = Intermediate\\n10 = Expert', '5');
+    if (!difficulty) return; // User cancelled
+
     computerLevel = Math.min(20, Math.max(1, parseInt(difficulty) * 2)); // Convert to Stockfish scale
 
     document.getElementById('startMenu').style.display = 'none';
     document.getElementById('gameContainer').style.display = 'block';
 
     // Initialize engine
-    if (!engine) {
-        engine = new ChessEngine();
-        showCoachMessage('🔄 Loading AI Engine...');
-        await engine.init();
-    }
+    try {
+        if (!engine) {
+            engine = new ChessEngine();
+            showCoachMessage('🔄 Loading AI Engine...');
+            await engine.init();
+            showCoachMessage('✅ Engine loaded successfully!');
+        }
 
-    // Start game
-    playerRole = 'w'; // Player is always white vs computer
-    initializeBoard('w');
-    showCoachMessage('🎯 Good luck! I\'ll be analyzing your moves.');
+        // Start game
+        playerRole = 'w'; // Player is always white vs computer
+        initializeBoard('w');
+        showCoachMessage('🎯 Good luck! I\'ll be analyzing your moves.');
+    } catch (error) {
+        console.error('Engine initialization failed:', error);
+        showCoachMessage('❌ Failed to load AI engine. Please refresh and try again.');
+        alert('Failed to load chess engine. This might be due to:\n- Slow internet connection\n- Browser blocking web workers\n\nPlease try:\n1. Refresh the page\n2. Use a different browser (Chrome/Firefox recommended)');
+
+        // Go back to menu
+        document.getElementById('startMenu').style.display = 'flex';
+        document.getElementById('gameContainer').style.display = 'none';
+    }
 });
 
 // Helper: Copy Link
