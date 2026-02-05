@@ -78,13 +78,17 @@ INSTRUCTIONS:
 // ===== TELEGRAM BOT INTEGRATION =====
 const TelegramBot = require('node-telegram-bot-api');
 
-// REPLACE THIS WITH YOUR ACTUAL BOT TOKEN FROM @BotFather
-const token = '8230610124:AAGlFXAYNmKZdvbq97Ej1C28BALFlzE2lyM';
+// Load environment variables (for local development)
+require('dotenv').config();
+
+// Get configuration from environment variables
+const token = process.env.BOT_TOKEN || '8230610124:AAGlFXAYNmKZdvbq97Ej1C28BALFlzE2lyM';
+const APP_URL = process.env.APP_URL || 'http://localhost:3000'; // Your deployed URL
+const botAppShortName = process.env.BOT_APP_SHORTNAME || 'chess';
 
 // Create a bot that uses 'polling' to fetch new updates
 let bot = null;
 let botUsername = 'GameFactoryBot'; // Default, will update on init
-const botAppShortName = 'chess'; // Must match the shortname set in BotFather
 
 if (token && token !== 'YOUR_BOT_TOKEN_HERE') {
     try {
@@ -110,8 +114,8 @@ if (token && token !== 'YOUR_BOT_TOKEN_HERE') {
 
             console.log(`Received /start from ${firstName} with payload: "${startPayload}"`);
 
-            // ngrok HTTPS URL for Telegram Web App
-            let gameUrl = 'https://sheiklike-tommye-cherishable.ngrok-free.dev';
+            // Use deployed URL or local URL
+            let gameUrl = APP_URL;
 
             // If payload exists (e.g., room_123), append it
             if (startPayload.startsWith('room_')) {
@@ -144,8 +148,8 @@ if (token && token !== 'YOUR_BOT_TOKEN_HERE') {
 
         // Handle Inline Queries (Sharing the game)
         bot.on('inline_query', (query) => {
-            // ngrok HTTPS URL
-            const gameUrl = 'https://sheiklike-tommye-cherishable.ngrok-free.dev';
+            // Use deployed URL
+            const gameUrl = APP_URL;
             const roomId = 'room_' + Date.now();
 
             // DIRECT MINI APP LINK (GameFactory Style)
