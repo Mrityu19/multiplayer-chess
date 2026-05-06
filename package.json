@@ -1,0 +1,21 @@
+{
+  "name": "chessgame",
+  "version": "1.0.0",
+  "description": "",
+  "main": "script.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  }
+}
