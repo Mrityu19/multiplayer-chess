@@ -1,0 +1,173 @@
+/* Premium Overrides for Multiplayer Chess */
+
+/* Background Elements */
+.mesh-background {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1;
+    background: radial-gradient(circle at 15% 50%, rgba(30, 20, 80, 0.8), transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(10, 80, 110, 0.7), transparent 50%),
+                radial-gradient(circle at 50% 80%, rgba(90, 20, 100, 0.5), transparent 50%);
+    background-color: #0b0f19;
+    animation: meshFlow 25s ease-in-out infinite alternate;
+}
+
+@keyframes meshFlow {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 100% 100%; }
+}
+
+h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    text-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+    background: linear-gradient(90deg, #ffffff, #00f0ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 1px;
+}
+
+/* Glassmorphism Menus */
+.start-menu, .game-over-content, .analysis-content, .custom-time-control, .time-category, .difficulty-box, .level-progress-container, .friend-link-box {
+    background: rgba(20, 25, 45, 0.5) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 240, 255, 0.15) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 240, 255, 0.05) !important;
+}
+
+/* Primary Buttons */
+.menu-button, .apply-btn, .copy-btn {
+    background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 600 !important;
+    border-radius: 12px !important;
+    letter-spacing: 0.5px;
+    box-shadow: 0 4px 15px rgba(58, 123, 213, 0.4) !important;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.menu-button:hover, .apply-btn:hover, .copy-btn:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 210, 255, 0.6) !important;
+}
+
+/* Sub-panels (Move History, Chat, Timers) */
+.move-history, .ai-chat-container, .chat-messages, .timer-box, .board-wrapper, .mobile-panel {
+    background: rgba(15, 20, 35, 0.6) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.timer-box {
+    font-family: 'Outfit', monospace;
+    font-size: 1.4rem !important;
+    color: #e0eaf5 !important;
+    border: 1px solid rgba(0, 240, 255, 0.3) !important;
+}
+
+.active-timer {
+    background: rgba(0, 240, 255, 0.15) !important;
+    border-color: #00f0ff !important;
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.4) !important;
+    color: #ffffff !important;
+}
+
+/* Chat Input & Bubbles */
+.chat-input-container input {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    padding: 10px 15px !important;
+}
+
+.chat-input-container input:focus {
+    border-color: #00f0ff !important;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2) !important;
+}
+
+.send-btn {
+    background: linear-gradient(135deg, #00d2ff, #3a7bd5) !important;
+    box-shadow: 0 4px 10px rgba(58, 123, 213, 0.4) !important;
+}
+
+.chat-bubble.me {
+    background: linear-gradient(135deg, #3a7bd5, #00d2ff) !important;
+    box-shadow: 0 2px 8px rgba(0, 210, 255, 0.3);
+}
+
+.chat-bubble.bot {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-left: 2px solid #ff007f !important;
+}
+
+.chat-bubble.opponent {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-left: 2px solid #00f0ff !important;
+}
+
+/* Secondary/Preset Buttons */
+.preset-btn, .timer-btn, .nav-btn, .level-btn {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease-out !important;
+}
+
+.preset-btn:hover, .timer-btn:hover, .nav-btn:hover, .level-btn:hover:not(.locked) {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(0, 240, 255, 0.5) !important;
+    transform: translateY(-2px);
+}
+
+.preset-btn.selected, .timer-btn.selected, .level-btn.selected {
+    background: rgba(0, 240, 255, 0.2) !important;
+    border-color: #00f0ff !important;
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.3) !important;
+    color: #fff !important;
+}
+
+/* Analysis Bar */
+.eval-bar {
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+}
+.eval-fill {
+    background: linear-gradient(to right, #ff007f, #00f0ff) !important;
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.5) !important;
+}
+
+/* Smooth Modals */
+.start-menu, .game-overlay, .analysis-content {
+    animation: fadeSlideUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Status Messages */
+.status-message {
+    background: rgba(20, 25, 45, 0.9) !important;
+    backdrop-filter: blur(10px);
+    border-radius: 8px !important;
+}
+.status-message.success {
+    border-left-color: #00f0ff !important;
+    box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3) !important;
+}
+.status-message.error {
+    border-left-color: #ff007f !important;
+    box-shadow: 0 4px 15px rgba(255, 0, 127, 0.3) !important;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 240, 255, 0.5); }

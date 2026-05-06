@@ -1,8 +1,8 @@
 /* General Page Styling */
 body {
-    background-color: var(--tg-theme-bg-color, #302e2b);
-    color: var(--tg-theme-text-color, #ffffff);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #0b0f19;
+    color: #ffffff;
+    font-family: 'Outfit', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -10,27 +10,46 @@ body {
     min-height: 100vh;
     margin: 0;
     padding: 0;
-    /* Remove padding for full screen */
     overflow-x: hidden;
-    /* Prevent horizontal scroll */
     width: 100%;
     text-align: center;
 }
 
-/* Hide header in small screens or Telegram */
-/* You might want to toggle this class via JS if (tg.initData) */
-/* For now, let's just make it smaller or hidden on very small screens */
+/* Dynamic Mesh Background */
+.mesh-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+    background: radial-gradient(circle at 15% 50%, rgba(20, 30, 70, 0.8), transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(10, 80, 100, 0.6), transparent 50%),
+                radial-gradient(circle at 50% 80%, rgba(80, 20, 100, 0.4), transparent 50%);
+    background-color: #0b0f19;
+    animation: meshFlow 20s ease-in-out infinite alternate;
+}
+
+@keyframes meshFlow {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 100% 100%; }
+}
+
 @media (max-width: 480px) {
     h1 {
-        display: none;
+        font-size: 1.5rem !important;
     }
 }
 
-
 h1 {
-    margin-top: 0;
-    font-size: 2rem;
-    text-shadow: 2px 2px 4px #000;
+    margin-top: 15px;
+    margin-bottom: 25px;
+    font-size: 2.5rem;
+    font-weight: 800;
+    text-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+    background: linear-gradient(90deg, #ffffff, #00f0ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 /* Start Menu */
