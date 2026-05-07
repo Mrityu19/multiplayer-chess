@@ -150,8 +150,10 @@ class ChessEngine {
             depth = Math.max(3, Math.min(15, difficultySettings));
         } else {
             features = difficultySettings;
-            // Calculate depth based on ELO - lower ELO = shallower search
-            if (features.elo) {
+            if (features.depth !== undefined) {
+                depth = features.depth;
+            } else if (features.elo) {
+                // Calculate depth based on ELO - lower ELO = shallower search
                 if (features.elo <= 400) depth = 2;
                 else if (features.elo <= 600) depth = 3;
                 else if (features.elo <= 800) depth = 4;

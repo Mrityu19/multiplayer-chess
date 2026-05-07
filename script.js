@@ -36,7 +36,8 @@ const roomParam = urlParams.get('room');
 
 
 // --- NEW DEFINITIONS ---
-var pendingPremove = null; // {source, target, promotion}
+var pendingPremove = null; // {from, to, promotion}
+var selectedSquare = null; // currently selected square for click-to-move
 var maxUnlockedLevel = parseInt(localStorage.getItem('chess_max_level')) || 1;
 
 // 20 Levels Definition
@@ -50,18 +51,26 @@ for (let i = 1; i <= 20; i++) {
 
 // Map selected level to engine settings
 function getEngineSettings(levelIndex) {
-    // levelIndex is 0-19
-    const levelData = LEVELS[levelIndex];
-
-    // For lower levels, use UCI_Elo to limit strength effectively
-    // For higher levels (e.g., 18-20), let Stockfish run free or high skill
-
-    if (levelIndex < 18) {
-        return { elo: levelData.elo };
-    } else {
-        // High levels: Use legacy Skill Level or max
-        return { skillLevel: 20 };
-    }
+    // levelIndex is 0-19 (for Levels 1-20)
+    
+    // 1. Map to Stockfish Skill Level (0-20)
+    // Level 1 (index 0) gets Skill Level 0, Level 20 (index 19) gets Skill Level 20
+    const skillLevel = Math.round((levelIndex / 19) * 20); 
+    
+    // 2. Map to Search Depth
+    // Lower levels need very shallow depth so they make beginner mistakes
+    let depth;
+    if (levelIndex <= 2) depth = 1;      // Levels 1-3: Depth 1 (Blunders often)
+    else if (levelIndex <= 5) depth = 2; // Levels 4-6: Depth 2
+    else if (levelIndex <= 8) depth = 3; // Levels 7-9: Depth 3
+    else if (levelIndex <= 12) depth = 5;// Levels 10-13: Depth 5
+    else if (levelIndex <= 16) depth = 8;// Levels 14-17: Depth 8
+    else depth = 15;                     // Levels 18-20: Depth 15 (Strong)
+    
+    return { 
+        skillLevel: skillLevel, 
+        depth: depth 
+    };
 }
 
 if (roomParam) {
@@ -361,20 +370,28 @@ document.getElementById('analyzeGameBtn').addEventListener('click', () => {
     startGameAnalysis();
 });
 
-// Resign Button
+// Resign Button - Opens Custom Modal
 document.getElementById('resignBtn').addEventListener('click', () => {
     if (!game || game.game_over()) return;
+    document.getElementById('resignModal').style.display = 'flex';
+});
 
-    const confirmResign = confirm('Are you sure you want to resign?');
-    if (confirmResign) {
-        stopComputerTimer();
-        const winner = playerRole === 'w' ? 'Black' : 'White';
-        document.getElementById('gameOverText').innerText = winner + ' wins by resignation!';
-        document.getElementById('gameOverlay').style.display = 'flex';
+// Cancel Resign
+document.getElementById('cancelResign').addEventListener('click', () => {
+    document.getElementById('resignModal').style.display = 'none';
+});
 
-        if (gameMode !== 'computer' && currentRoomId) {
-            socket.emit('gameEnd', currentRoomId);
-        }
+// Confirm Resign
+document.getElementById('confirmResign').addEventListener('click', () => {
+    document.getElementById('resignModal').style.display = 'none';
+    
+    stopComputerTimer();
+    const winner = playerRole === 'w' ? 'Black' : 'White';
+    document.getElementById('gameOverText').innerText = winner + ' wins by resignation!';
+    document.getElementById('gameOverlay').style.display = 'flex';
+
+    if (gameMode !== 'computer' && currentRoomId) {
+        socket.emit('gameEnd', currentRoomId);
     }
 });
 
@@ -544,6 +561,9 @@ function initializeBoard(color) {
         san: null
     }];
 
+    selectedSquare = null;
+    pendingPremove = null;
+
     if (board) board.destroy();
     board = Chessboard('myBoard', {
         draggable: true,
@@ -552,83 +572,194 @@ function initializeBoard(color) {
         onDragStart: onDragStart,
         onDrop: onDrop,
         onSnapEnd: onSnapEnd,
+        onSquareClick: onSquareClick,
         pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+    });
+
+    // Right-click on board = cancel premove
+    document.getElementById('myBoard').addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        clearPremoveHighlights();
+        pendingPremove = null;
+        clearClickSelection();
+        showStatusMessage('Premove cancelled.', 'info');
     });
 
     updateMoveHistory();
 }
 
+// ===== CLICK-TO-MOVE HELPERS =====
+
+function clearClickSelection() {
+    if (selectedSquare) {
+        $('.square-' + selectedSquare).removeClass('selected-square');
+    }
+    $('.square-55d63').removeClass('legal-move-dot legal-move-capture');
+    selectedSquare = null;
+}
+
+function showLegalMoves(square) {
+    const moves = game.moves({ square: square, verbose: true });
+    moves.forEach(m => {
+        const $sq = $('.square-' + m.to);
+        // If destination has a piece it's a capture → ring highlight
+        if (game.get(m.to)) {
+            $sq.addClass('legal-move-capture');
+        } else {
+            $sq.addClass('legal-move-dot');
+        }
+    });
+}
+
+function applyPremoveHighlights() {
+    if (!pendingPremove) return;
+    $('.square-' + pendingPremove.from).addClass('premove-from');
+    $('.square-' + pendingPremove.to).addClass('premove-to');
+}
+
+function clearPremoveHighlights() {
+    $('.square-55d63').removeClass('premove-from premove-to');
+}
+
+// ===== DRAG-AND-DROP HANDLERS =====
+
 function onDragStart(source, piece) {
     if (game.game_over()) return false;
 
-    // PREMOVE LOGIC
-    // If it's NOT my turn, but I'm trying to move, check if I own the piece
+    // Clear any click-selection when the user starts dragging
+    clearClickSelection();
+
+    // Not my turn → only allow dragging own pieces for a premove
     if (game.turn() !== playerRole) {
         if ((playerRole === 'w' && piece.search(/^w/) !== -1) ||
             (playerRole === 'b' && piece.search(/^b/) !== -1)) {
-
-            // Allow drag to set premove (return true), but we need to handle "onDrop" specially
-            // However, chessboard.js onDrop only fires if the move is "legal" compared to current board?
-            // Actually, chessboard.js doesn't validate rules, only "onDrop" logic does.
-            // visual feedback for premove will happen in onDrop
-            return true;
+            return true; // Allow drag; premove stored in onDrop
         }
         return false;
     }
 
-    // Normal move validation
-    if (!playerRole || game.turn() !== playerRole) return false;
+    // Normal turn: only allow dragging own pieces
+    if (!playerRole) return false;
     if ((playerRole === 'w' && piece.search(/^b/) !== -1) ||
         (playerRole === 'b' && piece.search(/^w/) !== -1)) return false;
 }
 
 function onDrop(source, target) {
-    // IS PREMOVE?
+    if (source === target) return 'snapback';
+
+    // --- PREMOVE via drag ---
     if (game.turn() !== playerRole) {
-        // Attempting to premove
-        const moves = game.moves({ verbose: true });
-        // We can't validate move legallity strictly yet because the board state isn't right
-        // We just store it. Logic: if source != target, assume intent to move.
-        if (source === target) return;
-
-        // Visual feedback for premove
+        clearPremoveHighlights();
         pendingPremove = { from: source, to: target, promotion: 'q' };
-
-        // Highlight square to show premove is set (Custom CSS needed)
-        // For now, we just rely on visual snapback (board will snap piece back, but we stored intent)
-        // To make it look "stuck", we'd need to manipulate the board state or add markers.
-        // Simple 1st iteration: Snapback but store move.
-        showStatusMessage('Premove set!', 'info');
-        return 'snapback';
+        applyPremoveHighlights();
+        showStatusMessage('⏩ Premove queued!', 'info');
+        return 'snapback'; // Snap the piece back visually; premove fires on opponent's move
     }
 
-    // NORMAL MOVE
+    // --- NORMAL MOVE via drag ---
+    clearPremoveHighlights();
+    pendingPremove = null;
+
     const prevScore = evaluatePosition();
     const move = game.move({ from: source, to: target, promotion: 'q' });
     if (move === null) return 'snapback';
 
-    // Clear any premove if I made a manual move
-    pendingPremove = null;
-
     executeMyMove(source, target, move, prevScore);
 }
 
-function handlePremove() {
-    if (pendingPremove && game.turn() === playerRole) {
-        // Clear highlights
-        $('.board-b72b1 .square-55d63').removeClass('premove-highlight');
+// ===== CLICK-TO-MOVE HANDLER =====
 
-        // Try to execute premove
-        const move = game.move(pendingPremove);
-        if (move) {
-            // Legal move!
-            board.position(game.fen());
-            executeMyMove(pendingPremove.from, pendingPremove.to, move, evaluatePosition());
-            showStatusMessage('Premove executed!', 'success');
-        } else {
-            showStatusMessage('Premove invalid.', 'error');
+function onSquareClick(square, piece) {
+    if (game.game_over()) return;
+
+    const myPieceOnSquare = piece &&
+        ((playerRole === 'w' && piece.search(/^w/) !== -1) ||
+         (playerRole === 'b' && piece.search(/^b/) !== -1));
+
+    // ---- NOT MY TURN → handle premove clicks ----
+    if (game.turn() !== playerRole) {
+        if (myPieceOnSquare) {
+            // Select this piece as premove source
+            clearClickSelection();
+            clearPremoveHighlights();
+            pendingPremove = null;
+            selectedSquare = square;
+            $('.square-' + square).addClass('selected-square');
+        } else if (selectedSquare) {
+            // User clicked a destination → store premove
+            clearPremoveHighlights();
+            pendingPremove = { from: selectedSquare, to: square, promotion: 'q' };
+            clearClickSelection();
+            applyPremoveHighlights();
+            showStatusMessage('⏩ Premove queued!', 'info');
         }
+        return;
+    }
+
+    // ---- MY TURN → normal click-to-move ----
+
+    // Case 1: A piece is already selected
+    if (selectedSquare) {
+        // Sub-case A: Clicked a different own piece → change selection
+        if (myPieceOnSquare && square !== selectedSquare) {
+            clearClickSelection();
+            selectedSquare = square;
+            $('.square-' + square).addClass('selected-square');
+            showLegalMoves(square);
+            return;
+        }
+
+        // Sub-case B: Clicked same square → deselect
+        if (square === selectedSquare) {
+            clearClickSelection();
+            return;
+        }
+
+        // Sub-case C: Clicked a destination → attempt move
+        const from = selectedSquare;
+        clearClickSelection();
+
+        const prevScore = evaluatePosition();
+        const move = game.move({ from: from, to: square, promotion: 'q' });
+
+        if (move === null) {
+            // Illegal → deselect silently
+            return;
+        }
+
+        board.position(game.fen());
         pendingPremove = null;
+        clearPremoveHighlights();
+        executeMyMove(from, square, move, prevScore);
+        return;
+    }
+
+    // Case 2: No piece selected yet → select if it's my piece
+    if (myPieceOnSquare) {
+        selectedSquare = square;
+        $('.square-' + square).addClass('selected-square');
+        showLegalMoves(square);
+    }
+}
+
+// ===== PREMOVE EXECUTION (called after opponent's move arrives) =====
+
+function handlePremove() {
+    if (!pendingPremove || game.turn() !== playerRole) return;
+
+    clearPremoveHighlights();
+    const storedPremove = pendingPremove;
+    pendingPremove = null;
+
+    const prevScore = evaluatePosition();
+    const move = game.move(storedPremove);
+
+    if (move) {
+        board.position(game.fen());
+        executeMyMove(storedPremove.from, storedPremove.to, move, prevScore);
+        showStatusMessage('✅ Premove executed!', 'success');
+    } else {
+        showStatusMessage('❌ Premove was illegal — cleared.', 'error');
     }
 }
 
